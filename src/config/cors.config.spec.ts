@@ -35,7 +35,7 @@ describe('createCorsOptions', () => {
 
   it('allows the deployed BariVara frontend in production', async () => {
     await expect(
-      checkOrigin(createCorsOptions('production'), 'https://barivara-web.vercel.app'),
+      checkOrigin(createCorsOptions('production'), 'https://barivara-web.vercel.app/'),
     ).resolves.toBe(true);
   });
 
