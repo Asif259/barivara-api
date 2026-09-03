@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUnitDto, UpdateUnitDto } from './dto/create-unit.dto';
+import { BulkCreateUnitsDto, CreateUnitDto, UpdateUnitDto } from './dto/create-unit.dto';
 import { UnitFilterDto } from './dto/unit-filter.dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { Prisma, UnitStatus } from '@prisma/client';
@@ -51,6 +52,85 @@ export class UnitsService {
     return {
       message: 'ইউনিট সফলভাবে যোগ করা হয়েছে',
       data: unit,
+    };
+  }
+
+  async bulkCreate(userId: string, propertyId: string, dto: BulkCreateUnitsDto) {
+    const property = await this.prisma.property.findFirst({
+      where: { id: propertyId, deletedAt: null },
+    });
+
+    if (!property) {
+      throw new NotFoundException({
+        errorCode: ErrorCode.PROPERTY_NOT_FOUND,
+        message: 'বাড়ি পাওয়া যায়নি।',
+      });
+    }
+
+    if (property.ownerId !== userId) {
+      throw new ForbiddenException({
+        errorCode: ErrorCode.PROPERTY_ACCESS_DENIED,
+        message: 'এই সম্পত্তিতে আপনার অ্যাক্সেস নেই।',
+      });
+    }
+
+    const units = dto.units.map((unit) => ({
+      ...unit,
+      unitNumber: unit.unitNumber.trim(),
+    }));
+    const normalizedNumbers = units.map((unit) => unit.unitNumber.toLocaleLowerCase());
+    const duplicateNumbers = normalizedNumbers.filter(
+      (number, index) => normalizedNumbers.indexOf(number) !== index,
+    );
+
+    if (units.some((unit) => !unit.unitNumber) || duplicateNumbers.length > 0) {
+      throw new BadRequestException({
+        errorCode: ErrorCode.DUPLICATE_RESOURCE,
+        message: 'প্রতিটি ইউনিট নম্বর আলাদা এবং আবশ্যক।',
+      });
+    }
+
+    const createdUnits = await this.prisma.$transaction(async (tx) => {
+      const existingUnits = await tx.unit.findMany({
+        where: {
+          propertyId,
+          deletedAt: null,
+          OR: units.map((unit) => ({ unitNumber: { equals: unit.unitNumber, mode: 'insensitive' } })),
+        },
+        select: { unitNumber: true },
+      });
+
+      if (existingUnits.length > 0) {
+        throw new BadRequestException({
+          errorCode: ErrorCode.DUPLICATE_RESOURCE,
+          message: `ইউনিট নম্বর ইতিমধ্যে রয়েছে: ${existingUnits.map((unit) => unit.unitNumber).join(', ')}`,
+        });
+      }
+
+      return Promise.all(
+        units.map((unit) =>
+          tx.unit.create({
+            data: {
+              propertyId,
+              floor: dto.floor,
+              unitNumber: unit.unitNumber,
+              unitType: unit.unitType,
+              bedrooms: unit.bedrooms,
+              bathrooms: unit.bathrooms,
+              monthlyBaseRent: new Prisma.Decimal(unit.monthlyBaseRent ?? 0),
+              defaultServiceFee: new Prisma.Decimal(unit.defaultServiceFee ?? 0),
+              defaultParkingFee: new Prisma.Decimal(unit.defaultParkingFee ?? 0),
+              defaultExtraCharge: new Prisma.Decimal(unit.defaultExtraCharge ?? 0),
+              status: UnitStatus.VACANT,
+            },
+          }),
+        ),
+      );
+    });
+
+    return {
+      message: 'Units created successfully',
+      data: { created: createdUnits.length, units: createdUnits },
     };
   }
 

@@ -7,7 +7,7 @@ const LOCAL_DEVELOPMENT_ORIGINS = [
   'http://localhost:19006',
 ];
 
-const PRODUCTION_ORIGINS = ['https://barivara-web.vercel.app/'];
+const PRODUCTION_ORIGINS = ['https://barivara-web.vercel.app'];
 
 function configuredOrigins(frontendUrl?: string): string[] {
   return (frontendUrl || '')

@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UnitsService } from './units.service';
-import { CreateUnitDto, UpdateUnitDto } from './dto/create-unit.dto';
+import { BulkCreateUnitsDto, CreateUnitDto, UpdateUnitDto } from './dto/create-unit.dto';
 import { UnitFilterDto } from './dto/unit-filter.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
@@ -38,6 +38,19 @@ export class UnitsController {
     @Body() createUnitDto: CreateUnitDto,
   ) {
     return this.unitsService.create(user.id, propertyId, createUnitDto);
+  }
+
+  @Post('properties/:propertyId/units/bulk')
+  @ApiOperation({ summary: 'একটি তলায় একসাথে একাধিক ইউনিট যোগ করুন' })
+  @ApiResponse({ status: 201, type: StandardSuccessResponseDto })
+  @ApiResponse({ status: 400, type: StandardErrorResponseDto })
+  @ApiResponse({ status: 403, type: StandardErrorResponseDto })
+  bulkCreate(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('propertyId') propertyId: string,
+    @Body() dto: BulkCreateUnitsDto,
+  ) {
+    return this.unitsService.bulkCreate(user.id, propertyId, dto);
   }
 
   @Get('properties/:propertyId/units')
