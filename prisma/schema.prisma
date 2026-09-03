@@ -1,0 +1,380 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum UnitType {
+  APARTMENT
+  FLAT
+  ROOM
+  SHOP
+  OFFICE
+  PARKING
+  OTHER
+}
+
+enum UnitStatus {
+  VACANT
+  OCCUPIED
+  MAINTENANCE
+  INACTIVE
+}
+
+enum AgreementStatus {
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+enum RentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  BKASH
+  NAGAD
+  ROCKET
+  CARD
+  OTHER
+}
+
+enum PaymentStatus {
+  COMPLETED
+  REVERSED
+}
+
+enum ExpenseCategory {
+  ELECTRICITY
+  WATER
+  GAS
+  MAINTENANCE
+  REPAIR
+  SECURITY
+  CLEANING
+  SALARY
+  TAX
+  OTHER
+}
+
+enum ReminderType {
+  UPCOMING_DUE
+  DUE_TODAY
+  OVERDUE
+  PAYMENT_CONFIRMATION
+  CUSTOM
+}
+
+enum ReminderChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PAYMENT_CREATED
+  PAYMENT_REVERSED
+  RENT_GENERATED
+}
+
+model User {
+  id              String    @id @default(uuid())
+  name            String
+  email           String?   @unique
+  phone           String?   @unique
+  passwordHash    String
+  role            Role      @default(OWNER)
+  isActive        Boolean   @default(true)
+  signatureFileId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  properties Property[]
+  auditLogs  AuditLog[]
+
+  @@map("users")
+}
+
+model Property {
+  id          String    @id @default(uuid())
+  ownerId     String
+  name        String
+  address     String
+  city        String?
+  district    String?
+  postalCode  String?
+  description String?
+  totalFloors Int       @default(1)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  units    Unit[]
+  expenses Expense[]
+
+  @@index([ownerId])
+  @@map("properties")
+}
+
+model Unit {
+  id                 String     @id @default(uuid())
+  propertyId         String
+  unitNumber         String
+  floor              Int        @default(0)
+  unitType           UnitType   @default(APARTMENT)
+  bedrooms           Int?
+  bathrooms          Int?
+  monthlyBaseRent    Decimal    @default(0) @db.Decimal(12, 2)
+  defaultServiceFee  Decimal    @default(0) @db.Decimal(12, 2)
+  defaultParkingFee  Decimal    @default(0) @db.Decimal(12, 2)
+  defaultExtraCharge Decimal    @default(0) @db.Decimal(12, 2)
+  status             UnitStatus @default(VACANT)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  property   Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  agreements RentalAgreement[]
+
+  @@index([propertyId])
+  @@map("units")
+}
+
+model Tenant {
+  id                    String    @id @default(uuid())
+  name                  String
+  phone                 String
+  email                 String?
+  nid                   String?
+  nidImageId            String?
+  permanentAddress      String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  occupation            String?
+  notes                 String?
+  isActive              Boolean   @default(true)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  agreements RentalAgreement[]
+  reminders  Reminder[]
+
+  @@index([phone])
+  @@map("tenants")
+}
+
+model RentalAgreement {
+  id                  String          @id @default(uuid())
+  tenantId            String
+  unitId              String
+  monthlyRent         Decimal         @db.Decimal(12, 2)
+  serviceFee          Decimal         @default(0) @db.Decimal(12, 2)
+  parkingFee          Decimal         @default(0) @db.Decimal(12, 2)
+  extraCharge         Decimal         @default(0) @db.Decimal(12, 2)
+  dueDay              Int             @default(5)
+  securityDeposit     Decimal         @default(0) @db.Decimal(12, 2)
+  startDate           DateTime
+  endDate             DateTime?
+  status              AgreementStatus @default(ACTIVE)
+  notes               String?
+  agreementDocumentId String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  deletedAt           DateTime?
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit         Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  monthlyRents MonthlyRent[]
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([status])
+  @@map("rental_agreements")
+}
+
+model MonthlyRent {
+  id              String     @id @default(uuid())
+  agreementId     String
+  month           Int
+  year            Int
+  rent            Decimal    @db.Decimal(12, 2)
+  serviceFee      Decimal    @default(0) @db.Decimal(12, 2)
+  parkingFee      Decimal    @default(0) @db.Decimal(12, 2)
+  extraCharge     Decimal    @default(0) @db.Decimal(12, 2)
+  lateFee         Decimal    @default(0) @db.Decimal(12, 2)
+  discount        Decimal    @default(0) @db.Decimal(12, 2)
+  totalAmount     Decimal    @db.Decimal(12, 2)
+  paidAmount      Decimal    @default(0) @db.Decimal(12, 2)
+  remainingAmount Decimal    @db.Decimal(12, 2)
+  dueDate         DateTime
+  paidDate        DateTime?
+  status          RentStatus @default(PENDING)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  agreement RentalAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  payments  Payment[]
+  reminders Reminder[]
+
+  @@unique([agreementId, year, month])
+  @@index([agreementId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([year, month])
+  @@map("monthly_rents")
+}
+
+model Payment {
+  id                        String        @id @default(uuid())
+  monthlyRentId             String
+  amount                    Decimal       @db.Decimal(12, 2)
+  paymentMethod             PaymentMethod @default(CASH)
+  transactionId             String?
+  paymentDate               DateTime      @default(now())
+  receivedBy                String?
+  note                      String?
+  status                    PaymentStatus @default(COMPLETED)
+  ownerSignatureSnapshotId  String?
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+
+  monthlyRent MonthlyRent @relation(fields: [monthlyRentId], references: [id], onDelete: Cascade)
+
+  @@index([monthlyRentId])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+model Expense {
+  id            String          @id @default(uuid())
+  propertyId    String
+  category      ExpenseCategory
+  amount        Decimal         @db.Decimal(12, 2)
+  expenseDate   DateTime        @default(now())
+  description   String?
+  paymentMethod PaymentMethod   @default(CASH)
+  reference     String?
+  receiptFileId String?
+  createdBy     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, expenseDate])
+  @@map("expenses")
+}
+
+model Reminder {
+  id            String          @id @default(uuid())
+  monthlyRentId String?
+  tenantId      String
+  type          ReminderType
+  scheduledAt   DateTime
+  sentAt        DateTime?
+  status        ReminderStatus  @default(PENDING)
+  channel       ReminderChannel @default(IN_APP)
+  message       String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  monthlyRent MonthlyRent? @relation(fields: [monthlyRentId], references: [id], onDelete: SetNull)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledAt, status])
+  @@map("reminders")
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  action     AuditAction
+  entityType String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// ─── File Upload / Media ──────────────────────────────────────────────────────
+
+enum FileCategory {
+  PROFILE_IMAGE
+  PROPERTY_IMAGE
+  TENANT_NID
+  TENANT_DOCUMENT
+  AGREEMENT_DOCUMENT
+  PAYMENT_RECEIPT
+  OWNER_SIGNATURE
+  OTHER
+}
+
+enum FileStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  DELETED
+}
+
+model Media {
+  id           String       @id @default(uuid())
+  originalName String
+  storagePath  String
+  bucket       String
+  mimeType     String
+  size         Int // bytes
+  category     FileCategory
+  entityType   String? // e.g. "tenant", "property", "payment", "agreement"
+  entityId     String? // UUID of the related entity
+  uploadedBy   String // User ID (not a FK to allow flexibility)
+  status       FileStatus   @default(PENDING)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  @@index([entityType, entityId])
+  @@index([uploadedBy])
+  @@index([status])
+  @@map("media")
+}
