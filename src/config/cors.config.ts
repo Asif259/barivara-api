@@ -7,6 +7,8 @@ const LOCAL_DEVELOPMENT_ORIGINS = [
   'http://localhost:19006',
 ];
 
+const PRODUCTION_ORIGINS = ['https://barivara-web.vercel.app/'];
+
 function configuredOrigins(frontendUrl?: string): string[] {
   return (frontendUrl || '')
     .split(',')
@@ -19,6 +21,7 @@ export function createCorsOptions(
   frontendUrl = process.env.FRONTEND_URL,
 ): CorsOptions {
   const allowedOrigins = new Set([
+    ...PRODUCTION_ORIGINS,
     ...configuredOrigins(frontendUrl),
     ...(nodeEnv === 'production' ? [] : LOCAL_DEVELOPMENT_ORIGINS),
   ]);

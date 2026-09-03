@@ -33,6 +33,12 @@ describe('createCorsOptions', () => {
     );
   });
 
+  it('allows the deployed BariVara frontend in production', async () => {
+    await expect(
+      checkOrigin(createCorsOptions('production'), 'https://barivara-web.vercel.app/'),
+    ).resolves.toBe(true);
+  });
+
   it('allows requests without an Origin header', async () => {
     await expect(checkOrigin(createCorsOptions('production'), undefined)).resolves.toBe(true);
   });
