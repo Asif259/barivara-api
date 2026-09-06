@@ -18,7 +18,7 @@ export class TenantsService {
     const tenant = await this.prisma.tenant.create({
       data: {
         name: dto.name,
-        phone: dto.phone,
+        phone: dto.phone || '',
         email: dto.email ? dto.email.toLowerCase() : null,
         nid: dto.nid || null,
         nidImageId: dto.nidImageId || null,
