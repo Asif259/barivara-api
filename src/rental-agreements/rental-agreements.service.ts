@@ -69,6 +69,22 @@ export class RentalAgreementsService {
       });
     }
 
+    // Check if the tenant already has an active rental agreement
+    const tenantActiveAgreement = await this.prisma.rentalAgreement.findFirst({
+      where: {
+        tenantId: dto.tenantId,
+        status: AgreementStatus.ACTIVE,
+        deletedAt: null,
+      },
+    });
+
+    if (tenantActiveAgreement) {
+      throw new ConflictException({
+        errorCode: ErrorCode.AGREEMENT_OVERLAP,
+        message: 'এই ভাড়াটিয়ার ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে। (একজন ভাড়াটিয়া শুধুমাত্র একটি ইউনিটে থাকতে পারবেন)',
+      });
+    }
+
     // Transaction for Agreement creation + Unit OCCUPIED status transition
     const agreement = await this.prisma.$transaction(async (tx: PrismaTx) => {
       const createdAgreement = await tx.rentalAgreement.create({
