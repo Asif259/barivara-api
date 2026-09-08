@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { validate } from './env.validation';
 
 describe('environment validation', () => {
