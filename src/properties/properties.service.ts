@@ -158,8 +158,7 @@ export class PropertiesService {
     await this.findOne(userId, id);
 
     const nowDhaka = DateUtil.nowInDhaka();
-    const currentYear = nowDhaka.getFullYear();
-    const currentMonth = nowDhaka.getMonth() + 1;
+    const { year: currentYear, month: currentMonth } = DateUtil.getDefaultRentPeriod(nowDhaka);
     const unitWhere: Prisma.UnitWhereInput = { propertyId: id, deletedAt: null };
     const rentWhere: Prisma.MonthlyRentWhereInput = {
       agreement: { unit: unitWhere, deletedAt: null },

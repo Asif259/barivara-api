@@ -34,4 +34,33 @@ describe('DateUtil', () => {
     const futureDueDate = new Date('2026-09-10T23:59:59.999Z');
     expect(DateUtil.isOverdue(futureDueDate, futureCurrentDate)).toBe(false);
   });
+
+  describe('getDefaultRentPeriod', () => {
+    it('should return August 2026 when current month is September 2026', () => {
+      // Month index in Date constructor: 8 = September
+      const sep2026 = new Date(2026, 8, 15, 12, 0, 0);
+      const period = DateUtil.getDefaultRentPeriod(sep2026);
+      expect(period).toEqual({ year: 2026, month: 8 });
+    });
+
+    it('should return September 2026 when current month is October 2026', () => {
+      // Month index: 9 = October
+      const oct2026 = new Date(2026, 9, 5, 10, 0, 0);
+      const period = DateUtil.getDefaultRentPeriod(oct2026);
+      expect(period).toEqual({ year: 2026, month: 9 });
+    });
+
+    it('should roll back to December 2026 when current month is January 2027', () => {
+      // Month index: 0 = January
+      const jan2027 = new Date(2027, 0, 1, 10, 0, 0);
+      const period = DateUtil.getDefaultRentPeriod(jan2027);
+      expect(period).toEqual({ year: 2026, month: 12 });
+    });
+
+    it('should return February 2026 when current month is March 2026', () => {
+      const mar2026 = new Date(2026, 2, 20);
+      const period = DateUtil.getDefaultRentPeriod(mar2026);
+      expect(period).toEqual({ year: 2026, month: 2 });
+    });
+  });
 });

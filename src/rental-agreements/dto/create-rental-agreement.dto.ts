@@ -49,13 +49,13 @@ export class CreateRentalAgreementDto {
   @Min(0)
   extraCharge?: number = 0;
 
-  @ApiPropertyOptional({ example: 5, default: 5, description: 'প্রতি মাসের ভাড়ার শেষ তারিখ (১-৩১)' })
+  @ApiPropertyOptional({ example: 10, default: 10, description: 'প্রতি মাসের ভাড়ার শেষ তারিখ (১-৩১)' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1, { message: 'শেষ দিন ১ থেকে ৩১ এর মধ্যে হতে হবে' })
   @Max(31, { message: 'শেষ দিন ১ থেকে ৩১ এর মধ্যে হতে হবে' })
-  dueDay?: number = 5;
+  dueDay?: number = 10;
 
   @ApiPropertyOptional({ example: 40000, default: 0, description: 'অগ্রিম / সিকিউরিটি ডিপোজিট' })
   @IsOptional()

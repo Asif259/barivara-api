@@ -44,4 +44,22 @@ export class DateUtil {
       timeZone: TIMEZONE_DHAKA,
     });
   }
+
+  /**
+   * Returns the default monthly rent period { year, month } (1-indexed month)
+   * which is the calendar month immediately preceding the given date in Asia/Dhaka.
+   * If current month is September 2026, returns August 2026 { year: 2026, month: 8 }.
+   * If current month is January 2027, rolls back to December 2026 { year: 2026, month: 12 }.
+   */
+  static getDefaultRentPeriod(referenceDate?: Date): { year: number; month: number } {
+    const zoned = toZonedTime(referenceDate || new Date(), TIMEZONE_DHAKA);
+    const calYear = zoned.getFullYear();
+    const calMonth = zoned.getMonth() + 1; // 1-12
+
+    if (calMonth === 1) {
+      return { year: calYear - 1, month: 12 };
+    }
+    return { year: calYear, month: calMonth - 1 };
+  }
 }
+

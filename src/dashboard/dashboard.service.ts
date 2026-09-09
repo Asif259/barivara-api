@@ -15,8 +15,9 @@ export class DashboardService {
     monthParam?: number,
   ) {
     const nowDhaka = DateUtil.nowInDhaka();
-    const year = yearParam || nowDhaka.getFullYear();
-    const month = monthParam || nowDhaka.getMonth() + 1;
+    const defaultPeriod = DateUtil.getDefaultRentPeriod(nowDhaka);
+    const year = yearParam || defaultPeriod.year;
+    const month = monthParam || defaultPeriod.month;
 
     // Refresh overdue statuses lazily
     await this.prisma.monthlyRent.updateMany({

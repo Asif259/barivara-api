@@ -80,13 +80,46 @@ export class RentalAgreementsService {
 
     if (tenantActiveAgreement) {
       throw new ConflictException({
-        errorCode: ErrorCode.AGREEMENT_OVERLAP,
-        message: 'এই ভাড়াটিয়ার ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে। (একজন ভাড়াটিয়া শুধুমাত্র একটি ইউনিটে থাকতে পারবেন)',
+        errorCode: ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS,
+        message: 'এই ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।',
       });
     }
 
+    const dueDay = dto.dueDay ?? 10;
+
     // Transaction for Agreement creation + Unit OCCUPIED status transition
     const agreement = await this.prisma.$transaction(async (tx: PrismaTx) => {
+      // Re-verify inside transaction to prevent concurrent race condition
+      const txTenantActive = await tx.rentalAgreement.findFirst({
+        where: {
+          tenantId: dto.tenantId,
+          status: AgreementStatus.ACTIVE,
+          deletedAt: null,
+        },
+      });
+
+      if (txTenantActive) {
+        throw new ConflictException({
+          errorCode: ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS,
+          message: 'এই ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।',
+        });
+      }
+
+      const txUnitActive = await tx.rentalAgreement.findFirst({
+        where: {
+          unitId: dto.unitId,
+          status: AgreementStatus.ACTIVE,
+          deletedAt: null,
+        },
+      });
+
+      if (txUnitActive) {
+        throw new ConflictException({
+          errorCode: ErrorCode.AGREEMENT_OVERLAP,
+          message: 'এই ইউনিটে ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে।',
+        });
+      }
+
       const createdAgreement = await tx.rentalAgreement.create({
         data: {
           tenantId: dto.tenantId,
@@ -95,7 +128,7 @@ export class RentalAgreementsService {
           serviceFee: new Prisma.Decimal(dto.serviceFee ?? 0),
           parkingFee: new Prisma.Decimal(dto.parkingFee ?? 0),
           extraCharge: new Prisma.Decimal(dto.extraCharge ?? 0),
-          dueDay: dto.dueDay ?? 5,
+          dueDay,
           securityDeposit: new Prisma.Decimal(dto.securityDeposit ?? 0),
           startDate: new Date(dto.startDate),
           status: AgreementStatus.ACTIVE,
@@ -131,7 +164,7 @@ export class RentalAgreementsService {
           discount: 0,
         });
 
-        const dueDate = DateUtil.calculateDueDate(year, month, dto.dueDay ?? 5);
+        const dueDate = DateUtil.calculateDueDate(year, month, dueDay);
 
         await tx.monthlyRent.create({
           data: {
