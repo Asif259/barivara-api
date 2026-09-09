@@ -57,4 +57,14 @@ describe('MonthlyRentsService Status Calculations', () => {
     const status = service.calculateStatus(total, paid, pastDueDate, currentDate);
     expect(status).toBe(RentStatus.PAID);
   });
+
+  it('should return OVERDUE when partially paid after due date', () => {
+    const total = 25500;
+    const paid = 10000;
+    const pastDueDate = new Date('2026-09-10T23:59:59.999Z');
+    const currentDate = new Date('2026-09-11T10:00:00.000Z');
+
+    const status = service.calculateStatus(total, paid, pastDueDate, currentDate);
+    expect(status).toBe(RentStatus.OVERDUE);
+  });
 });

@@ -17,9 +17,8 @@ export class RentCalculationUtil {
     const remaining = total.minus(paid);
 
     if (remaining.lessThanOrEqualTo(0)) return RentStatus.PAID;
+    if (DateUtil.isOverdue(dueDate, currentDate)) return RentStatus.OVERDUE;
     if (paid.greaterThan(0)) return RentStatus.PARTIAL;
-    return DateUtil.isOverdue(dueDate, currentDate)
-      ? RentStatus.OVERDUE
-      : RentStatus.PENDING;
+    return RentStatus.PENDING;
   }
 }

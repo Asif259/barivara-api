@@ -16,14 +16,16 @@ export class DateUtil {
    * Month is 1-indexed (1 = January, 12 = December).
    * Example: year=2026, month=2, dueDay=31 -> Feb 28, 2026 (or Feb 29 on leap year)
    */
-  static calculateDueDate(year: number, month: number, dueDay: number): Date {
-    // month is 1-indexed for date-fns (construct Date object with 0-indexed month)
-    const monthDate = new Date(year, month - 1, 1);
+  static calculateDueDate(rentYear: number, rentMonth: number, dueDay: number): Date {
+    const dueYear = rentMonth === 12 ? rentYear + 1 : rentYear;
+    const dueMonth = rentMonth === 12 ? 1 : rentMonth + 1;
+
+    const monthDate = new Date(dueYear, dueMonth - 1, 1);
     const maxDays = getDaysInMonth(monthDate);
     const clampedDay = Math.min(Math.max(1, dueDay), maxDays);
 
     // Represent as the due date at 23:59:59.999 Asia/Dhaka
-    const formattedDateString = `${year}-${String(month).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}T23:59:59.999`;
+    const formattedDateString = `${dueYear}-${String(dueMonth).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}T23:59:59.999`;
     return fromZonedTime(formattedDateString, TIMEZONE_DHAKA);
   }
 

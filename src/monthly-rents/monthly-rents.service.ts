@@ -588,7 +588,7 @@ export class MonthlyRentsService {
             },
           },
         },
-        status: RentStatus.PENDING,
+        status: { in: [RentStatus.PENDING, RentStatus.PARTIAL] },
         dueDate: { lt: now },
         remainingAmount: { gt: 0 },
       },

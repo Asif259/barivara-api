@@ -1,28 +1,34 @@
 import { DateUtil } from './date.util';
 
 describe('DateUtil', () => {
-  it('should clamp due date for 31-day dueDay in February 2026 (non-leap year) to Feb 28', () => {
-    const dueDate = DateUtil.calculateDueDate(2026, 2, 31);
+  it('should calculate due date in September 2026 for August 2026 rent', () => {
+    const dueDate = DateUtil.calculateDueDate(2026, 8, 10);
+    const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
+    expect(formatted).toBe('2026-09-10');
+  });
+
+  it('should calculate due date in October 2026 for September 2026 rent', () => {
+    const dueDate = DateUtil.calculateDueDate(2026, 9, 10);
+    const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
+    expect(formatted).toBe('2026-10-10');
+  });
+
+  it('should calculate due date in January 2027 for December 2026 rent (year rollover)', () => {
+    const dueDate = DateUtil.calculateDueDate(2026, 12, 10);
+    const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
+    expect(formatted).toBe('2027-01-10');
+  });
+
+  it('should calculate due date in February 2027 for January 2027 rent', () => {
+    const dueDate = DateUtil.calculateDueDate(2027, 1, 10);
+    const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
+    expect(formatted).toBe('2027-02-10');
+  });
+
+  it('should clamp due date for 31-day dueDay in January rent (due in Feb non-leap year) to Feb 28', () => {
+    const dueDate = DateUtil.calculateDueDate(2026, 1, 31);
     const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
     expect(formatted).toBe('2026-02-28');
-  });
-
-  it('should clamp due date for 31-day dueDay in February 2024 (leap year) to Feb 29', () => {
-    const dueDate = DateUtil.calculateDueDate(2024, 2, 31);
-    const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
-    expect(formatted).toBe('2024-02-29');
-  });
-
-  it('should clamp due date for 31-day dueDay in April 2026 (30-day month) to April 30', () => {
-    const dueDate = DateUtil.calculateDueDate(2026, 4, 31);
-    const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
-    expect(formatted).toBe('2026-04-30');
-  });
-
-  it('should keep due date when valid (e.g. day 15 in March)', () => {
-    const dueDate = DateUtil.calculateDueDate(2026, 3, 15);
-    const formatted = DateUtil.formatDhaka(dueDate, 'yyyy-MM-dd');
-    expect(formatted).toBe('2026-03-15');
   });
 
   it('should accurately determine if a date is overdue in Asia/Dhaka', () => {
