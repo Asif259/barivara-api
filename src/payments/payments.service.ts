@@ -13,6 +13,9 @@ import { DecimalUtil } from '../common/utils/decimal.util';
 import { Decimal } from 'decimal.js';
 import { RentCalculationUtil } from '../common/utils/rent-calculation.util';
 
+import { DateUtil, TIMEZONE_DHAKA } from '../common/utils/date.util';
+import { toZonedTime } from 'date-fns-tz';
+
 @Injectable()
 export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -77,6 +80,29 @@ export class PaymentsService {
     }
 
     const paymentDate = dto.paymentDate ? new Date(dto.paymentDate) : new Date();
+    if (isNaN(paymentDate.getTime())) {
+      throw new BadRequestException({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+        message: 'অবৈধ পেমেন্টের তারিখ।',
+      });
+    }
+
+    const dhakaNow = DateUtil.nowInDhaka();
+    const dhakaPaymentDate = toZonedTime(paymentDate, TIMEZONE_DHAKA);
+
+    if (dhakaPaymentDate > dhakaNow) {
+      const isSameDay =
+        dhakaPaymentDate.getFullYear() === dhakaNow.getFullYear() &&
+        dhakaPaymentDate.getMonth() === dhakaNow.getMonth() &&
+        dhakaPaymentDate.getDate() === dhakaNow.getDate();
+
+      if (!isSameDay) {
+        throw new BadRequestException({
+          errorCode: ErrorCode.VALIDATION_ERROR,
+          message: 'পেমেন্টের তারিখ ভবিষ্যতের তারিখ হতে পারে না।',
+        });
+      }
+    }
 
     // Snapshot the owner's current signature fileId for historical receipt consistency.
     // We capture the value at payment-creation time so later signature changes do not
