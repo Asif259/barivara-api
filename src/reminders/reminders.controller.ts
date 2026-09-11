@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RemindersService } from './reminders.service';
@@ -14,7 +15,7 @@ import {
   CreateReminderDto,
   UpdateReminderDto,
   ReminderQueryDto,
-} from './dto/create-reminder.dto';
+} from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -57,7 +58,7 @@ export class RemindersController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.remindersService.findOne(user.id, id);
   }
@@ -68,7 +69,7 @@ export class RemindersController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateReminderDto: UpdateReminderDto,
   ) {
     return this.remindersService.update(user.id, id, updateReminderDto);
@@ -80,7 +81,7 @@ export class RemindersController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   send(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.remindersService.send(user.id, id);
   }

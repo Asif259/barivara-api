@@ -8,11 +8,11 @@ import {
   Delete,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { TenantsService } from './tenants.service';
-import { CreateTenantDto, UpdateTenantDto } from './dto/create-tenant.dto';
-import { TenantFilterDto } from './dto/tenant-filter.dto';
+import { CreateTenantDto, UpdateTenantDto, TenantFilterDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -54,7 +54,7 @@ export class TenantsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.tenantsService.findOne(user.id, id);
   }
@@ -65,7 +65,7 @@ export class TenantsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateTenantDto: UpdateTenantDto,
   ) {
     return this.tenantsService.update(user.id, id, updateTenantDto);
@@ -77,7 +77,7 @@ export class TenantsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   remove(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.tenantsService.remove(user.id, id);
   }

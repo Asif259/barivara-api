@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PrismaTx } from '../prisma/prisma.service';
-import { CreatePaymentDto, PaymentQueryDto } from './dto/create-payment.dto';
+import { CreatePaymentDto, PaymentQueryDto } from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { Prisma, PaymentStatus, RentStatus, AuditAction } from '@prisma/client';
 import { DecimalUtil } from '../common/utils/decimal.util';

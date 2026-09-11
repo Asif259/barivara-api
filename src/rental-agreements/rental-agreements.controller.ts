@@ -7,14 +7,15 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RentalAgreementsService } from './rental-agreements.service';
 import {
   CreateRentalAgreementDto,
   UpdateRentalAgreementDto,
-} from './dto/create-rental-agreement.dto';
-import { RentalAgreementQueryDto } from './dto/rental-agreement-query.dto';
+  RentalAgreementQueryDto,
+} from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -59,7 +60,7 @@ export class RentalAgreementsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.rentalAgreementsService.findOne(user.id, id);
   }
@@ -70,7 +71,7 @@ export class RentalAgreementsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateRentalAgreementDto: UpdateRentalAgreementDto,
   ) {
     return this.rentalAgreementsService.update(
@@ -86,7 +87,7 @@ export class RentalAgreementsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   end(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body('endDate') endDate?: string,
   ) {
     return this.rentalAgreementsService.end(user.id, id, endDate);

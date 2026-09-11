@@ -4,8 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateTenantDto, UpdateTenantDto } from './dto/create-tenant.dto';
-import { TenantFilterDto } from './dto/tenant-filter.dto';
+import { CreateTenantDto, UpdateTenantDto, TenantFilterDto } from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { DecimalUtil } from '../common/utils/decimal.util';
 import { Decimal } from 'decimal.js';

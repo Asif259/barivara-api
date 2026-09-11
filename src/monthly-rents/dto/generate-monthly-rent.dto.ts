@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsInt,
   IsOptional,
-  IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -12,22 +12,19 @@ export class GenerateMonthlyRentDto {
   @ApiProperty({ example: 2026, description: 'সাল (যেমন: 2026)' })
   @Type(() => Number)
   @IsInt()
-  @Min(2000)
-  @Max(2100)
+  @Min(2000, { message: 'সাল ২০০০ থেকে ২১০০ এর মধ্যে হতে হবে' })
+  @Max(2100, { message: 'সাল ২০০০ থেকে ২১০০ এর মধ্যে হতে হবে' })
   year: number;
 
   @ApiProperty({ example: 9, description: 'মাস (১-১২)' })
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  @Max(12)
+  @Min(1, { message: 'মাস ১ থেকে ১২ এর মধ্যে হতে হবে' })
+  @Max(12, { message: 'মাস ১ থেকে ১২ এর মধ্যে হতে হবে' })
   month: number;
 
-  @ApiPropertyOptional({ description: 'নির্দিষ্ট কোনো বাড়ির আইডি (ঐচ্ছিক)' })
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'নির্দিষ্ট কোনো বাড়ির আইডি (ঐচ্ছিক UUID)' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4', { message: 'বাড়ির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   propertyId?: string;
 }
-
-export { CreateMonthlyRentDto } from './create-monthly-rent.dto';
-export { UpdateMonthlyRentDto } from './update-monthly-rent.dto';

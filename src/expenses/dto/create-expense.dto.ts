@@ -6,30 +6,31 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
-  Min,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateExpenseDto {
-  @ApiProperty({ example: 'property-uuid', description: 'বাড়ি আইডি' })
-  @IsString()
-  @IsNotEmpty({ message: 'বাড়ি নির্বাচন আবশ্যক' })
+  @ApiProperty({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'বাড়ি আইডি (UUID)' })
+  @IsUUID('4', { message: 'বাড়ির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
+  @IsNotEmpty({ message: 'বাড়ি নির্বাচন আবশ্যক' })
   propertyId: string;
 
   @ApiProperty({ enum: ExpenseCategory, example: ExpenseCategory.ELECTRICITY, description: 'খরচের খাত' })
   @IsEnum(ExpenseCategory, { message: 'সঠিক খরচের ক্যাটাগরি দিন' })
   category: ExpenseCategory;
 
-  @ApiProperty({ example: 4500, description: 'খরচের পরিমাণ (টাকা)' })
+  @ApiProperty({ example: 4500, description: 'খরচের পরিমাণ (টাকা, ০ এর বেশি)' })
   @Type(() => Number)
   @IsNumber()
-  @Min(1, { message: 'খরচের পরিমাণ ০ এর বেশি হতে হবে' })
+  @IsPositive({ message: 'খরচের পরিমাণ ০ এর বেশি হতে হবে' })
   amount: number;
 
   @ApiPropertyOptional({ example: '2026-09-02T10:00:00.000Z', description: 'খরচের তারিখ' })
   @IsOptional()
-  @IsDateString()
+  @IsDateString({}, { message: 'সঠিক খরচের তারিখ দিন' })
   expenseDate?: string;
 
   @ApiPropertyOptional({ example: 'আগস্ট মাসের কমন বিদ্যুৎ বিল', description: 'বিবরণ' })
@@ -39,7 +40,7 @@ export class CreateExpenseDto {
 
   @ApiPropertyOptional({ enum: PaymentMethod, default: PaymentMethod.CASH, description: 'পেমেন্ট মেথড' })
   @IsOptional()
-  @IsEnum(PaymentMethod)
+  @IsEnum(PaymentMethod, { message: 'সঠিক পেমেন্ট মেথড নির্বাচন করুন' })
   paymentMethod?: PaymentMethod = PaymentMethod.CASH;
 
   @ApiPropertyOptional({ example: 'DESCO-BILL-88271', description: 'ভাউচার বা রেফারেন্স নম্বর' })
@@ -52,13 +53,8 @@ export class CreateExpenseDto {
   @IsString()
   createdBy?: string;
 
-  @ApiPropertyOptional({ example: 'file-uuid', description: 'ভাউচার বা রশিদের ফাইল আইডি' })
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'ভাউচার বা রশিদের ফাইল আইডি (UUID)' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4', { message: 'রশিদের ফাইল আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   receiptFileId?: string;
 }
-
-// Backward-compatible re-exports — these classes now live in dedicated files
-// but any existing import from this path continues to work unchanged.
-export { UpdateExpenseDto } from './update-expense.dto';
-export { ExpenseQueryDto } from './expense-query.dto';

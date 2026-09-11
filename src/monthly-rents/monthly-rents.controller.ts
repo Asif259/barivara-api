@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { MonthlyRentsService } from './monthly-rents.service';
@@ -14,8 +15,8 @@ import {
   CreateMonthlyRentDto,
   GenerateMonthlyRentDto,
   UpdateMonthlyRentDto,
-} from './dto/generate-monthly-rent.dto';
-import { MonthlyRentQueryDto } from './dto/monthly-rent-query.dto';
+  MonthlyRentQueryDto,
+} from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -78,7 +79,7 @@ export class MonthlyRentsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.monthlyRentsService.findOne(user.id, id);
   }
@@ -89,7 +90,7 @@ export class MonthlyRentsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateDto: UpdateMonthlyRentDto,
   ) {
     return this.monthlyRentsService.update(user.id, id, updateDto);
@@ -100,7 +101,7 @@ export class MonthlyRentsController {
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   recalculateStatus(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.monthlyRentsService.recalculateStatus(user.id, id);
   }

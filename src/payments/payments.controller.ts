@@ -7,11 +7,12 @@ import {
   Query,
   Req,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { PaymentsService } from './payments.service';
-import { CreatePaymentDto, PaymentQueryDto } from './dto/create-payment.dto';
+import { CreatePaymentDto, PaymentQueryDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -53,7 +54,7 @@ export class PaymentsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   reverse(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() req: Request,
   ) {
     const ipAddress = req.ip || req.socket?.remoteAddress;
@@ -77,7 +78,7 @@ export class PaymentsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.paymentsService.findOne(user.id, id);
   }

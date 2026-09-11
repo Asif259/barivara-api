@@ -9,8 +9,8 @@ import {
   CreateMonthlyRentDto,
   GenerateMonthlyRentDto,
   UpdateMonthlyRentDto,
-} from './dto/generate-monthly-rent.dto';
-import { MonthlyRentQueryDto } from './dto/monthly-rent-query.dto';
+  MonthlyRentQueryDto,
+} from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { Prisma, RentStatus, AgreementStatus, AuditAction } from '@prisma/client';
 import { DecimalUtil } from '../common/utils/decimal.util';

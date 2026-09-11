@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class PaginationQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1, description: 'পৃষ্ঠা নম্বর' })
@@ -30,7 +30,7 @@ export class PaginationQueryDto {
 
   @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'desc', description: 'সর্টের দিক' })
   @IsOptional()
-  @IsString()
+  @IsIn(['asc', 'desc'], { message: 'সর্টের দিক asc অথবা desc হতে হবে' })
   sortOrder?: 'asc' | 'desc' = 'desc';
 
   get skip(): number {

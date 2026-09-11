@@ -9,8 +9,8 @@ import { PrismaTx } from '../prisma/prisma.service';
 import {
   CreateRentalAgreementDto,
   UpdateRentalAgreementDto,
-} from './dto/create-rental-agreement.dto';
-import { RentalAgreementQueryDto } from './dto/rental-agreement-query.dto';
+  RentalAgreementQueryDto,
+} from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { Prisma, UnitStatus, AgreementStatus, RentStatus } from '@prisma/client';
 import { DateUtil } from '../common/utils/date.util';

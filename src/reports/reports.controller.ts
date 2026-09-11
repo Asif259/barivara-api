@@ -5,6 +5,7 @@ import {
   Query,
   Res,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -63,7 +64,7 @@ export class ReportsController {
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   getTenantStatement(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('tenantId') tenantId: string,
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
   ) {
     return this.reportsService.getTenantStatement(user.id, tenantId);
   }
@@ -73,7 +74,7 @@ export class ReportsController {
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   getPropertyFinancial(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('propertyId') propertyId: string,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
   ) {
     return this.reportsService.getPropertyFinancial(user.id, propertyId);
   }

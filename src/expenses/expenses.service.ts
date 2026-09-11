@@ -8,7 +8,7 @@ import {
   CreateExpenseDto,
   UpdateExpenseDto,
   ExpenseQueryDto,
-} from './dto/create-expense.dto';
+} from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { Prisma } from '@prisma/client';
 import { DecimalUtil } from '../common/utils/decimal.util';

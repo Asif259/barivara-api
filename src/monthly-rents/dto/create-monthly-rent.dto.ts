@@ -4,15 +4,15 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateMonthlyRentDto {
-  @ApiProperty({ example: 'agreement-uuid', description: 'চুক্তি আইডি' })
-  @IsString()
+  @ApiProperty({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'চুক্তি আইডি (UUID)' })
+  @IsUUID('4', { message: 'চুক্তির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   @IsNotEmpty({ message: 'চুক্তি নির্বাচন আবশ্যক' })
   agreementId: string;
 

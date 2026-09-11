@@ -8,10 +8,11 @@ import {
   Delete,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PropertiesService } from './properties.service';
-import { CreatePropertyDto, UpdatePropertyDto } from './dto/create-property.dto';
+import { CreatePropertyDto, UpdatePropertyDto } from './dto';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
@@ -54,7 +55,7 @@ export class PropertiesController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   getSummary(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.propertiesService.getSummary(user.id, id);
   }
@@ -65,7 +66,7 @@ export class PropertiesController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.propertiesService.findOne(user.id, id);
   }
@@ -76,7 +77,7 @@ export class PropertiesController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePropertyDto: UpdatePropertyDto,
   ) {
     return this.propertiesService.update(user.id, id, updatePropertyDto);
@@ -88,7 +89,7 @@ export class PropertiesController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   remove(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.propertiesService.remove(user.id, id);
   }

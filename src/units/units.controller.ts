@@ -8,11 +8,11 @@ import {
   Delete,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UnitsService } from './units.service';
-import { BulkCreateUnitsDto, CreateUnitDto, UpdateUnitDto } from './dto/create-unit.dto';
-import { UnitFilterDto } from './dto/unit-filter.dto';
+import { BulkCreateUnitsDto, CreateUnitDto, UpdateUnitDto, UnitFilterDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -34,7 +34,7 @@ export class UnitsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   create(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('propertyId') propertyId: string,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Body() createUnitDto: CreateUnitDto,
   ) {
     return this.unitsService.create(user.id, propertyId, createUnitDto);
@@ -47,7 +47,7 @@ export class UnitsController {
   @ApiResponse({ status: 403, type: StandardErrorResponseDto })
   bulkCreate(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('propertyId') propertyId: string,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Body() dto: BulkCreateUnitsDto,
   ) {
     return this.unitsService.bulkCreate(user.id, propertyId, dto);
@@ -58,7 +58,7 @@ export class UnitsController {
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   findByProperty(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('propertyId') propertyId: string,
+    @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Query() query: UnitFilterDto,
   ) {
     return this.unitsService.findByProperty(user.id, propertyId, query);
@@ -70,7 +70,7 @@ export class UnitsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.unitsService.findOne(user.id, id);
   }
@@ -81,7 +81,7 @@ export class UnitsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUnitDto: UpdateUnitDto,
   ) {
     return this.unitsService.update(user.id, id, updateUnitDto);
@@ -93,7 +93,7 @@ export class UnitsController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   remove(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.unitsService.remove(user.id, id);
   }

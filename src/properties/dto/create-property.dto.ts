@@ -38,5 +38,3 @@ export class CreatePropertyDto {
   @Min(1, { message: 'তলা সংখ্যা কমপক্ষে ১ হতে হবে' })
   totalFloors?: number = 1;
 }
-
-export { UpdatePropertyDto } from './update-property.dto';

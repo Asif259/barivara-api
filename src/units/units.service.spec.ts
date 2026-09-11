@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UnitType } from '@prisma/client';
 import { validate } from 'class-validator';
-import { BulkCreateUnitsDto, BulkUnitItemDto } from './dto/create-unit.dto';
+import { BulkCreateUnitsDto, BulkUnitItemDto } from './dto';
 import { UnitsService } from './units.service';
 
 const property = { id: 'property-1', ownerId: 'owner-1', deletedAt: null };

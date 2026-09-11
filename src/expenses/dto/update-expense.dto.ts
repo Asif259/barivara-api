@@ -5,27 +5,28 @@ import {
   IsEnum,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
-  Min,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateExpenseDto {
   @ApiPropertyOptional({ enum: ExpenseCategory })
   @IsOptional()
-  @IsEnum(ExpenseCategory)
+  @IsEnum(ExpenseCategory, { message: 'সঠিক খরচের ক্যাটাগরি দিন' })
   category?: ExpenseCategory;
 
-  @ApiPropertyOptional({ example: 5000 })
+  @ApiPropertyOptional({ example: 5000, description: 'খরচের পরিমাণ (টাকা, ০ এর বেশি)' })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @Min(1)
+  @IsPositive({ message: 'খরচের পরিমাণ ০ এর বেশি হতে হবে' })
   amount?: number;
 
   @ApiPropertyOptional({ example: '2026-09-02T10:00:00.000Z' })
   @IsOptional()
-  @IsDateString()
+  @IsDateString({}, { message: 'সঠিক খরচের তারিখ দিন' })
   expenseDate?: string;
 
   @ApiPropertyOptional({ example: 'বিদ্যুৎ বিল সংশোধিত' })
@@ -35,7 +36,7 @@ export class UpdateExpenseDto {
 
   @ApiPropertyOptional({ enum: PaymentMethod })
   @IsOptional()
-  @IsEnum(PaymentMethod)
+  @IsEnum(PaymentMethod, { message: 'সঠিক পেমেন্ট মেথড নির্বাচন করুন' })
   paymentMethod?: PaymentMethod;
 
   @ApiPropertyOptional({ example: 'BILL-REF-123' })
@@ -43,8 +44,8 @@ export class UpdateExpenseDto {
   @IsString()
   reference?: string;
 
-  @ApiPropertyOptional({ example: 'file-uuid' })
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'রশিদের ফাইল আইডি (UUID)' })
   @IsOptional()
-  @IsString()
+  @IsUUID('4', { message: 'রশিদের ফাইল আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   receiptFileId?: string;
 }

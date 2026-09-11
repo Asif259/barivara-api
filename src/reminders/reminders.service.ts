@@ -9,7 +9,7 @@ import {
   CreateReminderDto,
   UpdateReminderDto,
   ReminderQueryDto,
-} from './dto/create-reminder.dto';
+} from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { ReminderStatus } from '@prisma/client';
 

@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ExpensesService } from './expenses.service';
@@ -15,7 +16,7 @@ import {
   CreateExpenseDto,
   UpdateExpenseDto,
   ExpenseQueryDto,
-} from './dto/create-expense.dto';
+} from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
@@ -57,7 +58,7 @@ export class ExpensesController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   findOne(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.expensesService.findOne(user.id, id);
   }
@@ -68,7 +69,7 @@ export class ExpensesController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateExpenseDto: UpdateExpenseDto,
   ) {
     return this.expensesService.update(user.id, id, updateExpenseDto);
@@ -80,7 +81,7 @@ export class ExpensesController {
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   remove(
     @CurrentUser() user: CurrentUserPayload,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.expensesService.remove(user.id, id);
   }

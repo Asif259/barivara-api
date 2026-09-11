@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePropertyDto, UpdatePropertyDto } from './dto/create-property.dto';
+import { CreatePropertyDto, UpdatePropertyDto } from './dto';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { DateUtil } from '../common/utils/date.util';

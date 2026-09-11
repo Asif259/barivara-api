@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 const trimEmptyToUndefined = ({ value }: { value: any }) =>
@@ -33,7 +33,7 @@ export class CreateTenantDto {
   @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'NID কার্ডের ছবির ফাইল আইডি (UUID)' })
   @IsOptional()
   @Transform(trimEmptyToUndefined)
-  @IsString()
+  @IsUUID('4', { message: 'NID ছবির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   nidImageId?: string;
 
   @ApiPropertyOptional({ example: 'গ্রাম: কৃষ্ণপুর, থানা: সদর, জেলা: বগুড়া', description: 'স্থায়ী ঠিকানা' })
@@ -66,6 +66,4 @@ export class CreateTenantDto {
   @IsString()
   notes?: string;
 }
-
-export { UpdateTenantDto } from './update-tenant.dto';
 

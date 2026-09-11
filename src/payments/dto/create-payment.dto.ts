@@ -6,26 +6,27 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
-  Min,
+  IsUUID,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreatePaymentDto {
-  @ApiProperty({ example: 'rent-uuid', description: 'মাসিক ভাড়ার আইডি' })
-  @IsString()
-  @IsNotEmpty({ message: 'মাসিক ভাড়া নির্বাচন আবশ্যক' })
+  @ApiProperty({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'মাসিক ভাড়ার আইডি (UUID)' })
+  @IsUUID('4', { message: 'মাসিক ভাড়ার আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
+  @IsNotEmpty({ message: 'মাসিক ভাড়া নির্বাচন আবশ্যক' })
   monthlyRentId: string;
 
-  @ApiProperty({ example: 20000, description: 'পরিশোধিত টাকার পরিমাণ' })
+  @ApiProperty({ example: 20000, description: 'পরিশোধিত টাকার পরিমাণ (০ এর বেশি)' })
   @Type(() => Number)
   @IsNumber()
-  @Min(1, { message: 'পেমেন্টের পরিমাণ ০ এর বেশি হতে হবে' })
+  @IsPositive({ message: 'পেমেন্টের পরিমাণ ০ এর বেশি হতে হবে' })
   amount: number;
 
   @ApiPropertyOptional({ enum: PaymentMethod, default: PaymentMethod.CASH, description: 'পেমেন্ট মেথড' })
   @IsOptional()
-  @IsEnum(PaymentMethod)
+  @IsEnum(PaymentMethod, { message: 'সঠিক পেমেন্ট মেথড নির্বাচন করুন' })
   paymentMethod?: PaymentMethod = PaymentMethod.CASH;
 
   @ApiPropertyOptional({ example: 'BKASH-TX-987654321', description: 'ট্রানজেকশন আইডি (ঐচ্ছিক)' })
@@ -35,10 +36,10 @@ export class CreatePaymentDto {
 
   @ApiPropertyOptional({ example: '2026-09-05T10:00:00.000Z', description: 'পেমেন্টের তারিখ' })
   @IsOptional()
-  @IsDateString()
+  @IsDateString({}, { message: 'সঠিক পেমেন্টের তারিখ দিন' })
   paymentDate?: string;
 
-  @ApiPropertyOptional({ example: 'সেপ্টেম্বর মাসের আংশিক ভাড়া', description: 'নোট বা মন্তব্য' })
+  @ApiPropertyOptional({ example: 'সেপ্টেম্বর মাসের আংশিক ভাড়া', description: 'নোট বা মন্তব্য' })
   @IsOptional()
   @IsString()
   note?: string;
@@ -48,7 +49,3 @@ export class CreatePaymentDto {
   @IsString()
   receivedBy?: string;
 }
-
-// Backward-compatible re-export — PaymentQueryDto now lives in its own file
-// but any existing import from this path continues to work unchanged.
-export { PaymentQueryDto } from './payment-query.dto';
