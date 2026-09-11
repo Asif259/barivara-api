@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -28,6 +29,8 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  // Stricter limit: 10 requests/min to deter registration abuse
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @ApiOperation({ summary: 'নতুন অ্যাকাউন্ট তৈরি করুন' })
   @ApiResponse({ status: 201, type: StandardSuccessResponseDto })
   @ApiResponse({ status: 400, type: StandardErrorResponseDto })
@@ -41,6 +44,8 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  // Stricter limit: 10 requests/min to deter brute-force
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @ApiOperation({ summary: 'লগইন করুন (ইমেইল অথবা ফোন নম্বর)' })
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   @ApiResponse({ status: 401, type: StandardErrorResponseDto })
@@ -53,7 +58,9 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'রিফ্রেশ টোকেন দিয়ে নতুন অ্যাক্সেস টোকেন নিন' })
+  // Stricter limit: 20 requests/min (refresh is more frequent than login)
+  @Throttle({ default: { ttl: 60000, limit: 20 } })
+  @ApiOperation({ summary: 'রিফ্রেশ টোকেন দিয়ে নতুন অ্যাক্সেস টোকেন নিন' })
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   @ApiResponse({ status: 401, type: StandardErrorResponseDto })
   async refresh(@Body() dto: RefreshTokenDto) {

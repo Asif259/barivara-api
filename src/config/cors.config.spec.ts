@@ -34,12 +34,21 @@ describe('createCorsOptions', () => {
   });
 
   it('allows the deployed BariVara frontend in production', async () => {
+    // Browsers never include a trailing slash in the Origin header.
     await expect(
-      checkOrigin(createCorsOptions('production'), 'https://barivara-web.vercel.app/'),
+      checkOrigin(createCorsOptions('production'), 'https://barivara-web.vercel.app'),
     ).resolves.toBe(true);
   });
 
   it('allows requests without an Origin header', async () => {
     await expect(checkOrigin(createCorsOptions('production'), undefined)).resolves.toBe(true);
+  });
+
+  it('rejects trailing-slash origin (browsers never send them)', async () => {
+    // A trailing slash in the Origin header would indicate a misconfigured client;
+    // we should reject it rather than silently accepting an unintended pattern.
+    await expect(
+      checkOrigin(createCorsOptions('production'), 'https://barivara-web.vercel.app/'),
+    ).rejects.toThrow('CORS origin is not allowed');
   });
 });

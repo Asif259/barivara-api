@@ -107,7 +107,7 @@ export class SupabaseStorageService implements OnModuleInit {
       this.logger.error(`Failed to create signed upload URL: ${error.message}`);
       throw new InternalServerErrorException({
         errorCode: 'FILE_UPLOAD_FAILED',
-        message: `Failed to generate upload URL: ${error.message}`,
+        message: 'ফাইল আপলোড URL তৈরি সম্ভব হয়নি।',
       });
     }
 
@@ -133,12 +133,10 @@ export class SupabaseStorageService implements OnModuleInit {
       .createSignedUrl(storagePath, expiresInSeconds);
 
     if (error) {
-      this.logger.error(
-        `Failed to create signed download URL: ${error.message}`,
-      );
+      this.logger.error(`Failed to create signed download URL: ${error.message}`);
       throw new InternalServerErrorException({
-        errorCode: 'FILE_UPLOAD_FAILED',
-        message: `Failed to generate download URL: ${error.message}`,
+        errorCode: 'INTERNAL_ERROR',
+        message: 'ফাইল ডাউনলোড URL তৈরি সম্ভব হয়নি।',
       });
     }
 

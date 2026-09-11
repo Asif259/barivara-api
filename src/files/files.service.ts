@@ -45,10 +45,15 @@ export class FilesService {
     // 2. Validate file size
     this.validateFileSize(dto.category, dto.size);
 
-    // 3. Determine bucket
+    // 3. Validate entity ownership before embedding entityId in the storage path
+    if (dto.entityType && dto.entityId) {
+      await this.validateEntityOwnership(userId, dto.entityType, dto.entityId);
+    }
+
+    // 4. Determine bucket
     const bucket = BUCKET_MAP[dto.category];
 
-    // 4. Generate safe storage path
+    // 5. Generate safe storage path
     const storagePath = this.generateStoragePath(
       dto.category,
       dto.mimeType,
@@ -57,7 +62,7 @@ export class FilesService {
       userId,
     );
 
-    // 5. Create PENDING Media record
+    // 6. Create PENDING Media record
     const media = await this.prisma.media.create({
       data: {
         originalName: dto.originalName,
@@ -73,7 +78,7 @@ export class FilesService {
       },
     });
 
-    // 6. Generate signed upload URL from Supabase
+    // 7. Generate signed upload URL from Supabase
     const uploadData = await this.supabaseStorage.generateSignedUploadUrl(
       bucket,
       storagePath,
@@ -296,7 +301,7 @@ export class FilesService {
       if (!allAllowed.includes(mimeType)) {
         throw new BadRequestException({
           errorCode: ErrorCode.FILE_INVALID_MIME_TYPE,
-          message: `"${mimeType}" ফাইল টাইপ অনুমোদিত নয়। অনুমোদিত: ${allAllowed.join(', ')}`,
+          message: 'এই ধরনের ফাইল আপলোড করা সম্ভব নয়।',
         });
       }
       return;
@@ -306,14 +311,14 @@ export class FilesService {
       if (!ALLOWED_IMAGE_MIMES.includes(mimeType)) {
         throw new BadRequestException({
           errorCode: ErrorCode.FILE_INVALID_MIME_TYPE,
-          message: `"${mimeType}" ফাইল টাইপ অনুমোদিত নয়। অনুমোদিত: ${ALLOWED_IMAGE_MIMES.join(', ')}`,
+          message: 'এই ধরনের ফাইল আপলোড করা সম্ভব নয়। অনুমোদিত: JPEG, PNG, WebP',
         });
       }
     } else if (isDocCategory) {
       if (!ALLOWED_DOCUMENT_MIMES.includes(mimeType)) {
         throw new BadRequestException({
           errorCode: ErrorCode.FILE_INVALID_MIME_TYPE,
-          message: `"${mimeType}" ফাইল টাইপ অনুমোদিত নয়। অনুমোদিত: ${ALLOWED_DOCUMENT_MIMES.join(', ')}`,
+          message: 'এই ধরনের ফাইল আপলোড করা সম্ভব নয়। অনুমোদিত: PDF',
         });
       }
     }
@@ -394,5 +399,72 @@ export class FilesService {
   private sanitizeMedia(media: any) {
     const { storagePath, deletedAt, ...rest } = media;
     return rest;
+  }
+
+  /**
+   * Validates that the caller owns the entity referenced by entityType + entityId.
+   * This prevents IDOR: a user cannot embed another user's entity ID in their upload path.
+   * Only known entity types are checked. Unknown types are silently allowed (fallback path).
+   */
+  private async validateEntityOwnership(
+    userId: string,
+    entityType: string,
+    entityId: string,
+  ): Promise<void> {
+    let owned = false;
+
+    switch (entityType.toLowerCase()) {
+      case 'tenant': {
+        // A tenant is valid if they have agreements under the user's properties,
+        // or if they have no agreements (unassigned).
+        const tenant = await this.prisma.tenant.findFirst({
+          where: {
+            id: entityId,
+            deletedAt: null,
+            OR: [
+              { agreements: { some: { unit: { property: { ownerId: userId } } } } },
+              { agreements: { none: {} } },
+            ],
+          },
+          select: { id: true },
+        });
+        owned = !!tenant;
+        break;
+      }
+      case 'property': {
+        const property = await this.prisma.property.findFirst({
+          where: { id: entityId, ownerId: userId, deletedAt: null },
+          select: { id: true },
+        });
+        owned = !!property;
+        break;
+      }
+      case 'unit': {
+        const unit = await this.prisma.unit.findFirst({
+          where: { id: entityId, property: { ownerId: userId }, deletedAt: null },
+          select: { id: true },
+        });
+        owned = !!unit;
+        break;
+      }
+      case 'agreement': {
+        const agreement = await this.prisma.rentalAgreement.findFirst({
+          where: { id: entityId, unit: { property: { ownerId: userId } }, deletedAt: null },
+          select: { id: true },
+        });
+        owned = !!agreement;
+        break;
+      }
+      default:
+        // Unknown entity types are not validated — path falls back to user-scoped path
+        return;
+    }
+
+    if (!owned) {
+      throw new ForbiddenException({
+        errorCode: ErrorCode.AUTH_FORBIDDEN,
+        message: 'আপনার এই রিসোর্সে ফাইল আপলোড করার অনুমতি নেই।',
+      });
+    }
   }
 }

@@ -24,6 +24,18 @@ describe('FilesService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    tenant: {
+      findFirst: jest.fn(),
+    },
+    property: {
+      findFirst: jest.fn(),
+    },
+    unit: {
+      findFirst: jest.fn(),
+    },
+    rentalAgreement: {
+      findFirst: jest.fn(),
+    },
   };
 
   const mockSupabaseStorage = {
@@ -86,6 +98,8 @@ describe('FilesService', () => {
     };
 
     it('should generate a signed upload URL for a valid image request', async () => {
+      mockPrisma.tenant.findFirst.mockResolvedValue({ id: 'tenant-uuid-789' });
+      
       mockPrisma.media.create.mockResolvedValue({
         id: mockFileId,
         ...validImageDto,
@@ -145,6 +159,22 @@ describe('FilesService', () => {
       ).rejects.toThrow(PayloadTooLargeException);
     });
 
+    it('should reject upload if user does not own the requested entity', async () => {
+      const tenantDto = { ...validImageDto, entityType: 'tenant', entityId: 'tenant-uuid-123' };
+      // Simulate tenant belonging to someone else
+      mockPrisma.tenant.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.requestUploadUrl(mockUserId, tenantDto),
+      ).rejects.toThrow(ForbiddenException);
+
+      const propertyDto = { ...validImageDto, entityType: 'property', entityId: 'prop-uuid-123' };
+      mockPrisma.property.findFirst.mockResolvedValue(null);
+      await expect(
+        service.requestUploadUrl(mockUserId, propertyDto),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('should accept a valid PDF for document categories', async () => {
       const pdfDto: RequestUploadUrlDto = {
         category: 'AGREEMENT_DOCUMENT' as FileCategory,
@@ -155,6 +185,8 @@ describe('FilesService', () => {
         entityId: 'agreement-uuid-123',
       };
 
+      mockPrisma.rentalAgreement.findFirst.mockResolvedValue({ id: 'agreement-uuid-123' });
+      
       mockPrisma.media.create.mockResolvedValue({
         id: mockFileId,
         ...pdfDto,
