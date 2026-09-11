@@ -68,15 +68,14 @@ export class ReportsService {
       },
     };
 
-    const [expensesAggregate, expensesList] = await Promise.all([
-      this.prisma.expense.aggregate({
-        where: expenseWhere,
-        _sum: { amount: true },
-      }),
-      this.prisma.expense.findMany({
-        where: expenseWhere,
-      }),
-    ]);
+    const expensesList = await this.prisma.expense.findMany({
+      where: expenseWhere,
+    });
+    
+    const totalExpense = expensesList.reduce(
+      (sum, exp) => sum.plus(DecimalUtil.toDecimal(exp.amount)),
+      new Decimal(0),
+    );
 
     let expected = new Decimal(0);
     let collected = new Decimal(0);
@@ -107,9 +106,7 @@ export class ReportsService {
     }
 
     const outstanding = expected.minus(collected);
-    const totalExpenses = DecimalUtil.toDecimal(
-      expensesAggregate._sum.amount || 0,
-    );
+    const totalExpenses = totalExpense;
     const netCollection = collected.minus(totalExpenses);
 
     return {

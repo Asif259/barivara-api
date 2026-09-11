@@ -92,9 +92,12 @@ export class DashboardService {
     await this.prisma.monthlyRent.updateMany({
       where: {
         agreement: {
+          deletedAt: null,
           unit: {
+            deletedAt: null,
             property: {
               ownerId: userId,
+              deletedAt: null,
             },
           },
         },

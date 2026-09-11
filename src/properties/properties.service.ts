@@ -104,8 +104,27 @@ export class PropertiesService {
     };
   }
 
+  private async checkOwnership(userId: string, id: string) {
+    const property = await this.prisma.property.findFirst({
+      where: { id, deletedAt: null },
+      select: { ownerId: true },
+    });
+    if (!property) {
+      throw new NotFoundException({
+        errorCode: ErrorCode.PROPERTY_NOT_FOUND,
+        message: 'বাড়ি পাওয়া যায়নি।',
+      });
+    }
+    if (property.ownerId !== userId) {
+      throw new ForbiddenException({
+        errorCode: ErrorCode.PROPERTY_ACCESS_DENIED,
+        message: 'এই বাড়িতে আপনার অ্যাক্সেস নেই।',
+      });
+    }
+  }
+
   async update(userId: string, id: string, dto: UpdatePropertyDto) {
-    await this.findOne(userId, id);
+    await this.checkOwnership(userId, id);
 
     const updated = await this.prisma.property.update({
       where: { id },
@@ -127,7 +146,7 @@ export class PropertiesService {
   }
 
   async remove(userId: string, id: string) {
-    await this.findOne(userId, id);
+    await this.checkOwnership(userId, id);
 
     await this.prisma.property.update({
       where: { id },

@@ -6,8 +6,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTenantDto, UpdateTenantDto, TenantFilterDto } from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
-import { DecimalUtil } from '../common/utils/decimal.util';
-import { Decimal } from 'decimal.js';
+
+
 
 @Injectable()
 export class TenantsService {
@@ -193,14 +193,6 @@ export class TenantsService {
                 },
               },
             },
-            monthlyRents: {
-              orderBy: [{ year: 'desc' }, { month: 'desc' }],
-              include: {
-                payments: {
-                  orderBy: { paymentDate: 'desc' },
-                },
-              },
-            },
           },
         },
       },
@@ -227,26 +219,34 @@ export class TenantsService {
 
     const activeAgreement = userAgreements.find((a) => a.status === 'ACTIVE') || null;
 
-    // Calculate total outstanding balance across all monthly rents for this user's properties
-    let totalOutstanding = new Decimal(0);
-    const paymentHistory: any[] = [];
-    const allMonthlyRents: any[] = [];
+    // Extract all agreement IDs
+    const agreementIds = userAgreements.map((a) => a.id);
 
-    for (const agreement of userAgreements) {
-      for (const rent of agreement.monthlyRents) {
-        allMonthlyRents.push(rent);
-        totalOutstanding = totalOutstanding.plus(
-          DecimalUtil.toDecimal(rent.remainingAmount),
-        );
-        if (rent.payments) {
-          paymentHistory.push(...rent.payments);
-        }
-      }
-    }
+    // Calculate total outstanding balance via aggregate
+    const outstandingAgg = await this.prisma.monthlyRent.aggregate({
+      where: { agreementId: { in: agreementIds } },
+      _sum: { remainingAmount: true },
+    });
+    const totalOutstanding = outstandingAgg._sum.remainingAmount?.toNumber() || 0;
 
-    paymentHistory.sort(
-      (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime(),
-    );
+    // Fetch latest 20 monthly rents
+    const monthlyRents = await this.prisma.monthlyRent.findMany({
+      where: { agreementId: { in: agreementIds } },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }],
+      take: 20,
+    });
+
+    // Fetch latest 50 payments
+    const paymentHistory = await this.prisma.payment.findMany({
+      where: { monthlyRent: { agreementId: { in: agreementIds } } },
+      orderBy: { paymentDate: 'desc' },
+      take: 50,
+      include: {
+        monthlyRent: {
+          select: { year: true, month: true },
+        },
+      },
+    });
 
     return {
       message: 'ভাড়াটিয়ার বিস্তারিত প্রোফাইল',
@@ -266,8 +266,8 @@ export class TenantsService {
         createdAt: tenant.createdAt,
         currentAgreement: activeAgreement,
         currentUnit: activeAgreement?.unit || null,
-        outstandingAmount: totalOutstanding.toNumber(),
-        monthlyRents: allMonthlyRents,
+        outstandingAmount: totalOutstanding,
+        monthlyRents,
         paymentHistory,
       },
     };
