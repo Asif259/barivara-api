@@ -33,6 +33,7 @@ export class AuthService {
     if (dto.email) {
       const existingEmail = await this.prisma.user.findUnique({
         where: { email: dto.email.toLowerCase() },
+        select: { id: true },
       });
       if (existingEmail) {
         throw new ConflictException({
@@ -45,6 +46,7 @@ export class AuthService {
     if (dto.phone) {
       const existingPhone = await this.prisma.user.findUnique({
         where: { phone: dto.phone },
+        select: { id: true },
       });
       if (existingPhone) {
         throw new ConflictException({
@@ -78,7 +80,7 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user.id, user.role, user.email, user.phone);
 
-    // Audit log
+    // Audit log — no PII (email/phone) in metadata to minimise data in audit trail
     await this.prisma.auditLog.create({
       data: {
         userId: user.id,
@@ -87,7 +89,7 @@ export class AuthService {
         entityId: user.id,
         ipAddress,
         userAgent,
-        metadata: { action: 'REGISTER', email: user.email, phone: user.phone },
+        metadata: { action: 'REGISTER' },
       },
     });
 

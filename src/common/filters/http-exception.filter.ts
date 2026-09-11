@@ -58,20 +58,30 @@ export class HttpExceptionFilter implements ExceptionFilter {
         status = HttpStatus.CONFLICT;
         errorCode = ErrorCode.DUPLICATE_RESOURCE;
         message = getLocalizedMessage(ErrorCode.DUPLICATE_RESOURCE, lang);
-        details = { target: (prismaErr.meta as { target?: unknown } | undefined)?.target };
+        // Only expose the field name, not the full constraint target
+        const target = (prismaErr.meta as { target?: unknown } | undefined)?.target;
+        details = { field: target };
       } else if (prismaErr.code === 'P2025') {
         status = HttpStatus.NOT_FOUND;
         errorCode = ErrorCode.RESOURCE_NOT_FOUND;
         message = getLocalizedMessage(ErrorCode.RESOURCE_NOT_FOUND, lang);
-      } else {
+      } else if (prismaErr.code === 'P2003') {
+        // Foreign-key constraint: safe to tell client it's a validation issue,
+        // but never expose which table/column triggered it.
         status = HttpStatus.BAD_REQUEST;
         errorCode = ErrorCode.VALIDATION_ERROR;
-        message = isEn ? 'Database operation error.' : 'ডাটাবেজ অপারেশনে সমস্যা হয়েছে।';
-        details = { code: prismaErr.code };
+        message = isEn ? 'Invalid reference: the specified resource does not exist.' : 'অবৈধ রেফারেন্স: নির্দিষ্ট তথ্য বিদ্যমান নেই।';
+      } else {
+        // All other Prisma errors — return generic 500, no DB details exposed
+        status = HttpStatus.INTERNAL_SERVER_ERROR;
+        errorCode = ErrorCode.INTERNAL_ERROR;
+        message = getLocalizedMessage(ErrorCode.INTERNAL_ERROR, lang);
+        this.logger.error(`Unhandled Prisma error [${prismaErr.code}]`, prismaErr.stack);
       }
     } else if (exception instanceof Error) {
+      // Never echo exception.message — it may contain internal paths, connection strings, etc.
       this.logger.error(`Unhandled Exception: ${exception.message}`, exception.stack);
-      message = exception.message || getLocalizedMessage(ErrorCode.INTERNAL_ERROR, lang);
+      // message stays as the generic INTERNAL_ERROR default set at the top
     }
 
     response.status(status).json({

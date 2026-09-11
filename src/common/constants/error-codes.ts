@@ -1,6 +1,7 @@
 export enum ErrorCode {
   AUTH_INVALID_CREDENTIALS = 'AUTH_INVALID_CREDENTIALS',
   AUTH_UNAUTHORIZED = 'AUTH_UNAUTHORIZED',
+  AUTH_TOKEN_EXPIRED = 'AUTH_TOKEN_EXPIRED',
   AUTH_FORBIDDEN = 'AUTH_FORBIDDEN',
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   RESOURCE_NOT_FOUND = 'RESOURCE_NOT_FOUND',
@@ -35,6 +36,7 @@ export enum ErrorCode {
 export const BanglaMessages: Record<ErrorCode, string> = {
   [ErrorCode.AUTH_INVALID_CREDENTIALS]: 'ভুল ইমেইল/ফোন অথবা পাসওয়ার্ড।',
   [ErrorCode.AUTH_UNAUTHORIZED]: 'অনুমোদনহীন অ্যাক্সেস। অনুগ্রহ করে লগইন করুন।',
+  [ErrorCode.AUTH_TOKEN_EXPIRED]: 'আপনার সেশন মেয়াদোত্তীর্ণ হয়েছে। অনুগ্রহ করে পুনরায় লগইন করুন।',
   [ErrorCode.AUTH_FORBIDDEN]: 'আপনার এই কাজটি করার অনুমতি নেই।',
   [ErrorCode.VALIDATION_ERROR]: 'অনুরোধের তথ্যে ভুল রয়েছে।',
   [ErrorCode.RESOURCE_NOT_FOUND]: 'তথ্য পাওয়া যায়নি।',
@@ -69,6 +71,7 @@ export const BanglaMessages: Record<ErrorCode, string> = {
 export const EnglishMessages: Record<ErrorCode, string> = {
   [ErrorCode.AUTH_INVALID_CREDENTIALS]: 'Invalid email/phone or password.',
   [ErrorCode.AUTH_UNAUTHORIZED]: 'Unauthorized access. Please login.',
+  [ErrorCode.AUTH_TOKEN_EXPIRED]: 'Your session has expired. Please login again.',
   [ErrorCode.AUTH_FORBIDDEN]: 'You do not have permission to perform this action.',
   [ErrorCode.VALIDATION_ERROR]: 'Request validation failed.',
   [ErrorCode.RESOURCE_NOT_FOUND]: 'Resource not found.',
