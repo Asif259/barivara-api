@@ -95,7 +95,7 @@ export class SupabaseStorageService implements OnModuleInit {
   async generateSignedUploadUrl(
     bucket: string,
     storagePath: string,
-    expiresInSeconds: number = 600, // 10 minutes
+    _expiresInSeconds: number = 600, // 10 minutes
   ): Promise<{ signedUrl: string; token: string; path: string }> {
     const client = this.getClient();
 

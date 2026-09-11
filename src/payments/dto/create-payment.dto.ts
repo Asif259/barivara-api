@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { PaymentMethod } from '@prisma/client';
 import {
   IsDateString,
   IsEnum,
@@ -10,12 +10,11 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class CreatePaymentDto {
-  @ApiProperty({ example: 'rent-uuid', description: 'মাসিক ভাড়ার আইডি' })
+  @ApiProperty({ example: 'rent-uuid', description: 'মাসিক ভাড়ার আইডি' })
   @IsString()
-  @IsNotEmpty({ message: 'মাসিক ভাড়া নির্বাচন আবশ্যক' })
+  @IsNotEmpty({ message: 'মাসিক ভাড়া নির্বাচন আবশ্যক' })
   monthlyRentId: string;
 
   @ApiProperty({ example: 20000, description: 'পরিশোধিত টাকার পরিমাণ' })
@@ -39,7 +38,7 @@ export class CreatePaymentDto {
   @IsDateString()
   paymentDate?: string;
 
-  @ApiPropertyOptional({ example: 'সেপ্টেম্বর মাসের আংশিক ভাড়া', description: 'নোট বা মন্তব্য' })
+  @ApiPropertyOptional({ example: 'সেপ্টেম্বর মাসের আংশিক ভাড়া', description: 'নোট বা মন্তব্য' })
   @IsOptional()
   @IsString()
   note?: string;
@@ -50,39 +49,6 @@ export class CreatePaymentDto {
   receivedBy?: string;
 }
 
-export class PaymentQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'মাসিক ভাড়া আইডি' })
-  @IsOptional()
-  @IsString()
-  monthlyRentId?: string;
-
-  @ApiPropertyOptional({ description: 'বাড়ি আইডি' })
-  @IsOptional()
-  @IsString()
-  propertyId?: string;
-
-  @ApiPropertyOptional({ description: 'ভাড়াটিয়া আইডি' })
-  @IsOptional()
-  @IsString()
-  tenantId?: string;
-
-  @ApiPropertyOptional({ enum: PaymentMethod, description: 'পেমেন্ট মেথড' })
-  @IsOptional()
-  @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod;
-
-  @ApiPropertyOptional({ enum: PaymentStatus, description: 'পেমেন্টের অবস্থা (COMPLETED, REVERSED)' })
-  @IsOptional()
-  @IsEnum(PaymentStatus)
-  status?: PaymentStatus;
-
-  @ApiPropertyOptional({ description: 'তারিখ থেকে' })
-  @IsOptional()
-  @IsDateString()
-  dateFrom?: string;
-
-  @ApiPropertyOptional({ description: 'তারিখ পর্যন্ত' })
-  @IsOptional()
-  @IsDateString()
-  dateTo?: string;
-}
+// Backward-compatible re-export — PaymentQueryDto now lives in its own file
+// but any existing import from this path continues to work unchanged.
+export { PaymentQueryDto } from './payment-query.dto';

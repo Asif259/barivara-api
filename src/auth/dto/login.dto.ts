@@ -23,9 +23,4 @@ export class LoginDto {
   password: string;
 }
 
-export class RefreshTokenDto {
-  @ApiProperty({ description: 'রিফ্রেশ টোকেন' })
-  @IsString()
-  @IsNotEmpty({ message: 'রিফ্রেশ টোকেন আবশ্যক' })
-  refreshToken: string;
-}
+export { RefreshTokenDto } from './refresh-token.dto';

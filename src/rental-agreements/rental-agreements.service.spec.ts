@@ -1,5 +1,5 @@
 import { RentalAgreementsService } from './rental-agreements.service';
-import { AgreementStatus, UnitStatus } from '@prisma/client';
+import { AgreementStatus } from '@prisma/client';
 import { ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ErrorCode } from '../common/constants/error-codes';
 

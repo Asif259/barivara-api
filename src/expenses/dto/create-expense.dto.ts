@@ -10,12 +10,11 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class CreateExpenseDto {
-  @ApiProperty({ example: 'property-uuid', description: 'বাড়ি আইডি' })
+  @ApiProperty({ example: 'property-uuid', description: 'বাড়ি আইডি' })
   @IsString()
-  @IsNotEmpty({ message: 'বাড়ি নির্বাচন আবশ্যক' })
+  @IsNotEmpty({ message: 'বাড়ি নির্বাচন আবশ্যক' })
   propertyId: string;
 
   @ApiProperty({ enum: ExpenseCategory, example: ExpenseCategory.ELECTRICITY, description: 'খরচের খাত' })
@@ -59,68 +58,7 @@ export class CreateExpenseDto {
   receiptFileId?: string;
 }
 
-export class UpdateExpenseDto {
-  @ApiPropertyOptional({ enum: ExpenseCategory })
-  @IsOptional()
-  @IsEnum(ExpenseCategory)
-  category?: ExpenseCategory;
-
-  @ApiPropertyOptional({ example: 5000 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(1)
-  amount?: number;
-
-  @ApiPropertyOptional({ example: '2026-09-02T10:00:00.000Z' })
-  @IsOptional()
-  @IsDateString()
-  expenseDate?: string;
-
-  @ApiPropertyOptional({ example: 'বিদ্যুৎ বিল সংশোধিত' })
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @ApiPropertyOptional({ enum: PaymentMethod })
-  @IsOptional()
-  @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod;
-
-  @ApiPropertyOptional({ example: 'BILL-REF-123' })
-  @IsOptional()
-  @IsString()
-  reference?: string;
-
-  @ApiPropertyOptional({ example: 'file-uuid' })
-  @IsOptional()
-  @IsString()
-  receiptFileId?: string;
-}
-
-export class ExpenseQueryDto extends PaginationQueryDto {
-  @ApiPropertyOptional({ description: 'বাড়ি আইডি' })
-  @IsOptional()
-  @IsString()
-  propertyId?: string;
-
-  @ApiPropertyOptional({ enum: ExpenseCategory, description: 'ক্যাটাগরি' })
-  @IsOptional()
-  @IsEnum(ExpenseCategory)
-  category?: ExpenseCategory;
-
-  @ApiPropertyOptional({ enum: PaymentMethod, description: 'পেমেন্ট মেথড' })
-  @IsOptional()
-  @IsEnum(PaymentMethod)
-  paymentMethod?: PaymentMethod;
-
-  @ApiPropertyOptional({ description: 'তারিখ থেকে' })
-  @IsOptional()
-  @IsDateString()
-  dateFrom?: string;
-
-  @ApiPropertyOptional({ description: 'তারিখ পর্যন্ত' })
-  @IsOptional()
-  @IsDateString()
-  dateTo?: string;
-}
+// Backward-compatible re-exports — these classes now live in dedicated files
+// but any existing import from this path continues to work unchanged.
+export { UpdateExpenseDto } from './update-expense.dto';
+export { ExpenseQueryDto } from './expense-query.dto';

@@ -1,9 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import { StandardSuccessResponseDto } from '../common/dto/api-response.dto';
+import { DashboardOverviewQueryDto } from './dto/dashboard-overview-query.dto';
 
 @ApiTags('Dashboard')
 @ApiBearerAuth()
@@ -14,21 +15,16 @@ export class DashboardController {
 
   @Get('overview')
   @ApiOperation({ summary: 'ড্যাশবোর্ড ওভারভিউ পরিসংখ্যান দেখুন' })
-  @ApiQuery({ name: 'propertyId', required: false, description: 'বাড়ি আইডি (ঐচ্ছিক)' })
-  @ApiQuery({ name: 'year', required: false, description: 'সাল (ডিফল্ট বর্তমান সাল)' })
-  @ApiQuery({ name: 'month', required: false, description: 'মাস (ডিফল্ট বর্তমান মাস)' })
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   getOverview(
     @CurrentUser() user: CurrentUserPayload,
-    @Query('propertyId') propertyId?: string,
-    @Query('year') year?: number,
-    @Query('month') month?: number,
+    @Query() query: DashboardOverviewQueryDto,
   ) {
     return this.dashboardService.getOverview(
       user.id,
-      propertyId,
-      year ? Number(year) : undefined,
-      month ? Number(month) : undefined,
+      query.propertyId,
+      query.year,
+      query.month,
     );
   }
 }
