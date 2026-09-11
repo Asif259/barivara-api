@@ -1,20 +1,14 @@
-import { MonthlyRentsService } from './monthly-rents.service';
+import { RentCalculationUtil } from '../common/utils/rent-calculation.util';
 import { RentStatus } from '@prisma/client';
 
-describe('MonthlyRentsService Status Calculations', () => {
-  let service: MonthlyRentsService;
-
-  beforeEach(() => {
-    service = new MonthlyRentsService({} as any);
-  });
-
+describe('RentCalculationUtil.calculateStatus', () => {
   it('should return PENDING when paidAmount is 0 and dueDate is in future', () => {
     const total = 25500;
     const paid = 0;
     const futureDueDate = new Date('2026-09-10T23:59:59.999Z');
     const currentDate = new Date('2026-09-02T10:00:00.000Z');
 
-    const status = service.calculateStatus(total, paid, futureDueDate, currentDate);
+    const status = RentCalculationUtil.calculateStatus(total, paid, futureDueDate, currentDate);
     expect(status).toBe(RentStatus.PENDING);
   });
 
@@ -24,7 +18,7 @@ describe('MonthlyRentsService Status Calculations', () => {
     const futureDueDate = new Date('2026-09-10T23:59:59.999Z');
     const currentDate = new Date('2026-09-02T10:00:00.000Z');
 
-    const status = service.calculateStatus(total, paid, futureDueDate, currentDate);
+    const status = RentCalculationUtil.calculateStatus(total, paid, futureDueDate, currentDate);
     expect(status).toBe(RentStatus.PARTIAL);
   });
 
@@ -34,7 +28,7 @@ describe('MonthlyRentsService Status Calculations', () => {
     const dueDate = new Date('2026-09-10T23:59:59.999Z');
     const currentDate = new Date('2026-09-02T10:00:00.000Z');
 
-    const status = service.calculateStatus(total, paid, dueDate, currentDate);
+    const status = RentCalculationUtil.calculateStatus(total, paid, dueDate, currentDate);
     expect(status).toBe(RentStatus.PAID);
   });
 
@@ -44,7 +38,7 @@ describe('MonthlyRentsService Status Calculations', () => {
     const pastDueDate = new Date('2026-09-01T23:59:59.999Z');
     const currentDate = new Date('2026-09-05T10:00:00.000Z');
 
-    const status = service.calculateStatus(total, paid, pastDueDate, currentDate);
+    const status = RentCalculationUtil.calculateStatus(total, paid, pastDueDate, currentDate);
     expect(status).toBe(RentStatus.OVERDUE);
   });
 
@@ -54,7 +48,7 @@ describe('MonthlyRentsService Status Calculations', () => {
     const pastDueDate = new Date('2026-09-01T23:59:59.999Z');
     const currentDate = new Date('2026-09-05T10:00:00.000Z');
 
-    const status = service.calculateStatus(total, paid, pastDueDate, currentDate);
+    const status = RentCalculationUtil.calculateStatus(total, paid, pastDueDate, currentDate);
     expect(status).toBe(RentStatus.PAID);
   });
 
@@ -64,7 +58,7 @@ describe('MonthlyRentsService Status Calculations', () => {
     const pastDueDate = new Date('2026-09-10T23:59:59.999Z');
     const currentDate = new Date('2026-09-11T10:00:00.000Z');
 
-    const status = service.calculateStatus(total, paid, pastDueDate, currentDate);
+    const status = RentCalculationUtil.calculateStatus(total, paid, pastDueDate, currentDate);
     expect(status).toBe(RentStatus.OVERDUE);
   });
 });

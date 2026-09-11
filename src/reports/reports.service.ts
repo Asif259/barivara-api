@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { DateUtil } from '../common/utils/date.util';
 import { DecimalUtil } from '../common/utils/decimal.util';
 import { Decimal } from 'decimal.js';
-import { RentStatus } from '@prisma/client';
+import { Prisma, RentStatus } from '@prisma/client';
 import { stringify } from 'csv-stringify';
 import { ErrorCode } from '../common/constants/error-codes';
 
@@ -21,15 +21,13 @@ export class ReportsService {
     const year = yearParam || nowDhaka.getFullYear();
     const month = monthParam || nowDhaka.getMonth() + 1;
 
-    const propertyWhere: any = {
+    const propertyWhere: Prisma.PropertyWhereInput = {
       ownerId: userId,
       deletedAt: null,
+      ...(propertyId && { id: propertyId }),
     };
-    if (propertyId) {
-      propertyWhere.id = propertyId;
-    }
 
-    const unitWhere = {
+    const unitWhere: Prisma.UnitWhereInput = {
       property: propertyWhere,
       deletedAt: null,
     };
@@ -59,10 +57,9 @@ export class ReportsService {
     });
 
     // Expenses for this month and property
-    const startDate = new Date(Date.UTC(year, month - 1, 1));
-    const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+    const { startDate, endDate } = DateUtil.getMonthDateRange(year, month);
 
-    const expenseWhere: any = {
+    const expenseWhere: Prisma.ExpenseWhereInput = {
       property: propertyWhere,
       deletedAt: null,
       expenseDate: {
@@ -250,23 +247,19 @@ export class ReportsService {
       });
     }
 
-    // Aggregate lifetime collected rent
-    const rents = await this.prisma.monthlyRent.findMany({
+    // DB aggregate for lifetime rent totals — avoids loading all rent rows into memory
+    const rentTotals = await this.prisma.monthlyRent.aggregate({
       where: {
         agreement: {
           unit: { propertyId, deletedAt: null },
         },
       },
+      _sum: { totalAmount: true, paidAmount: true },
     });
 
-    let totalExpected = new Decimal(0);
-    let totalCollected = new Decimal(0);
-    for (const r of rents) {
-      totalExpected = totalExpected.plus(DecimalUtil.toDecimal(r.totalAmount));
-      totalCollected = totalCollected.plus(DecimalUtil.toDecimal(r.paidAmount));
-    }
-
-    const totalOutstanding = totalExpected.minus(totalCollected);
+    const totalExpected = DecimalUtil.toDecimal(rentTotals._sum.totalAmount);
+    const totalCollected = DecimalUtil.toDecimal(rentTotals._sum.paidAmount);
+    const totalOutstanding = DecimalUtil.calculateRemaining(totalExpected, totalCollected);
 
     // Aggregate lifetime expenses
     const expensesSum = await this.prisma.expense.aggregate({

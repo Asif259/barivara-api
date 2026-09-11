@@ -21,4 +21,22 @@ export class RentCalculationUtil {
     if (paid.greaterThan(0)) return RentStatus.PARTIAL;
     return RentStatus.PENDING;
   }
+
+  static calculateTotal(charges: {
+    rent: DecimalValue;
+    serviceFee?: DecimalValue;
+    parkingFee?: DecimalValue;
+    extraCharge?: DecimalValue;
+    lateFee?: DecimalValue;
+    discount?: DecimalValue;
+  }): Decimal {
+    return DecimalUtil.calculateRentTotal(charges);
+  }
+
+  static calculateRemaining(
+    totalAmount: DecimalValue,
+    paidAmount: DecimalValue,
+  ): Decimal {
+    return DecimalUtil.calculateRemaining(totalAmount, paidAmount);
+  }
 }

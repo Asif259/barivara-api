@@ -8,8 +8,8 @@ import { CreatePropertyDto, UpdatePropertyDto } from './dto';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { DateUtil } from '../common/utils/date.util';
-import { Decimal } from 'decimal.js';
-import { Prisma, UnitStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { MetricsUtil, UnitCountGroup } from '../common/utils/metrics.util';
 
 @Injectable()
 export class PropertiesService {
@@ -36,18 +36,7 @@ export class PropertiesService {
   }
 
   async findAll(userId: string, query: PaginationQueryDto) {
-    const where: any = {
-      ownerId: userId,
-      deletedAt: null,
-    };
-
-    if (query.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { address: { contains: query.search, mode: 'insensitive' } },
-        { city: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
+    const where = this.buildFindAllWhere(userId, query.search);
 
     const [total, properties] = await Promise.all([
       this.prisma.property.count({ where }),
@@ -159,12 +148,14 @@ export class PropertiesService {
 
     const nowDhaka = DateUtil.nowInDhaka();
     const { year: currentYear, month: currentMonth } = DateUtil.getDefaultRentPeriod(nowDhaka);
+
     const unitWhere: Prisma.UnitWhereInput = { propertyId: id, deletedAt: null };
     const rentWhere: Prisma.MonthlyRentWhereInput = {
       agreement: { unit: unitWhere, deletedAt: null },
       year: currentYear,
       month: currentMonth,
     };
+
     const [unitCounts, activeTenantGroups, rentTotals] = await Promise.all([
       this.prisma.unit.groupBy({ where: unitWhere, by: ['status'], _count: { _all: true } }),
       this.prisma.rentalAgreement.groupBy({
@@ -176,38 +167,51 @@ export class PropertiesService {
         _sum: { totalAmount: true, paidAmount: true },
       }),
     ]);
-    const unitCountByStatus = new Map(unitCounts.map((group) => [group.status, group._count._all]));
-    const totalUnits = unitCounts.reduce((total, group) => total + group._count._all, 0);
-    const occupiedUnits = unitCountByStatus.get(UnitStatus.OCCUPIED) || 0;
-    const vacantUnits = unitCountByStatus.get(UnitStatus.VACANT) || 0;
-    const maintenanceUnits = unitCountByStatus.get(UnitStatus.MAINTENANCE) || 0;
-    const activeTenants = activeTenantGroups.length;
-    const expected = new Decimal(rentTotals._sum.totalAmount?.toString() || 0);
-    const collected = new Decimal(rentTotals._sum.paidAmount?.toString() || 0);
 
-    const outstanding = expected.minus(collected);
-    const collectionRate = expected.isZero()
-      ? 0
-      : collected.dividedBy(expected).times(100).toNumber();
+    const unitMetrics = MetricsUtil.calculateUnitMetrics(unitCounts as UnitCountGroup[]);
+    const collectionMetrics = MetricsUtil.calculateCollectionMetrics(
+      rentTotals._sum.totalAmount,
+      rentTotals._sum.paidAmount,
+    );
 
     return {
       message: 'বাড়ির সারাংশ',
       data: {
         propertyId: id,
-        totalUnits,
-        occupiedUnits,
-        vacantUnits,
-        maintenanceUnits,
-        activeTenants,
+        totalUnits: unitMetrics.totalUnits,
+        occupiedUnits: unitMetrics.occupiedUnits,
+        vacantUnits: unitMetrics.vacantUnits,
+        maintenanceUnits: unitMetrics.maintenanceUnits,
+        activeTenants: activeTenantGroups.length,
         currentMonth: {
           year: currentYear,
           month: currentMonth,
-          expected: expected.toNumber(),
-          collected: collected.toNumber(),
-          outstanding: (outstanding.isNegative() ? new Decimal(0) : outstanding).toNumber(),
-          collectionRate: Number(collectionRate.toFixed(2)),
+          expected: collectionMetrics.expected.toNumber(),
+          collected: collectionMetrics.collected.toNumber(),
+          outstanding: collectionMetrics.outstanding.toNumber(),
+          collectionRate: collectionMetrics.collectionRate,
         },
       },
     };
+  }
+
+  /**
+   * Builds search and ownership filter for properties listing.
+   */
+  private buildFindAllWhere(userId: string, search?: string): Prisma.PropertyWhereInput {
+    const where: Prisma.PropertyWhereInput = {
+      ownerId: userId,
+      deletedAt: null,
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { address: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
   }
 }

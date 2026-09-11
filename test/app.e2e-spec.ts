@@ -7,6 +7,9 @@ import { TransformInterceptor } from '../src/common/interceptors/transform.inter
 import { PrismaService } from '../src/prisma/prisma.service';
 
 describe('BariVara Core Milestone Flow (e2e)', () => {
+  // Remote Supabase connections can be slow — allow 30 s per test
+  jest.setTimeout(30000);
+
   let app: INestApplication;
   let prisma: PrismaService;
 

@@ -63,5 +63,23 @@ export class DateUtil {
     }
     return { year: calYear, month: calMonth - 1 };
   }
+
+  /**
+   * Returns start and end Date boundary for a given calendar year and 1-indexed month.
+   */
+  static getMonthDateRange(year: number, month: number): { startDate: Date; endDate: Date } {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+
+  /**
+   * Returns start of today (00:00:00.000)
+   */
+  static startOfToday(): Date {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
 }
 

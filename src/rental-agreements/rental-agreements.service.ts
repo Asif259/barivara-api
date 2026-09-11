@@ -31,7 +31,7 @@ export class RentalAgreementsService {
     if (!unit) {
       throw new NotFoundException({
         errorCode: ErrorCode.UNIT_NOT_FOUND,
-        message: 'ভাড়া ইউনিট পাওয়া যায়নি।',
+        message: 'ভাড়া ইউনিট পাওয়া যায়নি।',
       });
     }
 
@@ -42,21 +42,8 @@ export class RentalAgreementsService {
       });
     }
 
-    // Check for overlapping ACTIVE agreements on the unit
-    const activeAgreement = await this.prisma.rentalAgreement.findFirst({
-      where: {
-        unitId: dto.unitId,
-        status: AgreementStatus.ACTIVE,
-        deletedAt: null,
-      },
-    });
-
-    if (activeAgreement) {
-      throw new ConflictException({
-        errorCode: ErrorCode.AGREEMENT_OVERLAP,
-        message: 'এই ইউনিটে ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে।',
-      });
-    }
+    // Pre-flight conflict checks (fast rejection before entering transaction)
+    await this.assertNoActiveAgreementOnUnit(dto.unitId);
 
     const tenant = await this.prisma.tenant.findFirst({
       where: { id: dto.tenantId, deletedAt: null },
@@ -65,60 +52,19 @@ export class RentalAgreementsService {
     if (!tenant) {
       throw new NotFoundException({
         errorCode: ErrorCode.TENANT_NOT_FOUND,
-        message: 'ভাড়াটিয়া পাওয়া যায়নি।',
+        message: 'ভাড়াটিয়া পাওয়া যায়নি।',
       });
     }
 
-    // Check if the tenant already has an active rental agreement
-    const tenantActiveAgreement = await this.prisma.rentalAgreement.findFirst({
-      where: {
-        tenantId: dto.tenantId,
-        status: AgreementStatus.ACTIVE,
-        deletedAt: null,
-      },
-    });
-
-    if (tenantActiveAgreement) {
-      throw new ConflictException({
-        errorCode: ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS,
-        message: 'এই ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।',
-      });
-    }
+    await this.assertNoActiveAgreementForTenant(dto.tenantId);
 
     const dueDay = dto.dueDay ?? 10;
 
     // Transaction for Agreement creation + Unit OCCUPIED status transition
     const agreement = await this.prisma.$transaction(async (tx: PrismaTx) => {
       // Re-verify inside transaction to prevent concurrent race condition
-      const txTenantActive = await tx.rentalAgreement.findFirst({
-        where: {
-          tenantId: dto.tenantId,
-          status: AgreementStatus.ACTIVE,
-          deletedAt: null,
-        },
-      });
-
-      if (txTenantActive) {
-        throw new ConflictException({
-          errorCode: ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS,
-          message: 'এই ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।',
-        });
-      }
-
-      const txUnitActive = await tx.rentalAgreement.findFirst({
-        where: {
-          unitId: dto.unitId,
-          status: AgreementStatus.ACTIVE,
-          deletedAt: null,
-        },
-      });
-
-      if (txUnitActive) {
-        throw new ConflictException({
-          errorCode: ErrorCode.AGREEMENT_OVERLAP,
-          message: 'এই ইউনিটে ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে।',
-        });
-      }
+      await this.assertNoActiveAgreementForTenantTx(tx, dto.tenantId);
+      await this.assertNoActiveAgreementOnUnitTx(tx, dto.unitId);
 
       const createdAgreement = await tx.rentalAgreement.create({
         data: {
@@ -151,52 +97,20 @@ export class RentalAgreementsService {
       });
 
       if (dto.generateCurrentMonthRent) {
-        const start = new Date(dto.startDate);
-        const year = start.getFullYear();
-        const month = start.getMonth() + 1;
-
-        const totalAmount = DecimalUtil.calculateRentTotal({
-          rent: dto.monthlyRent,
-          serviceFee: dto.serviceFee,
-          parkingFee: dto.parkingFee,
-          extraCharge: dto.extraCharge,
-          lateFee: 0,
-          discount: 0,
-        });
-
-        const dueDate = DateUtil.calculateDueDate(year, month, dueDay);
-
-        await tx.monthlyRent.create({
-          data: {
-            agreementId: createdAgreement.id,
-            year,
-            month,
-            rent: new Prisma.Decimal(dto.monthlyRent),
-            serviceFee: new Prisma.Decimal(dto.serviceFee ?? 0),
-            parkingFee: new Prisma.Decimal(dto.parkingFee ?? 0),
-            extraCharge: new Prisma.Decimal(dto.extraCharge ?? 0),
-            lateFee: new Prisma.Decimal(0),
-            discount: new Prisma.Decimal(0),
-            totalAmount: new Prisma.Decimal(totalAmount.toString()),
-            paidAmount: new Prisma.Decimal(0),
-            remainingAmount: new Prisma.Decimal(totalAmount.toString()),
-            dueDate,
-            status: RentStatus.PENDING,
-          },
-        });
+        await this.createInitialMonthlyRent(tx, createdAgreement.id, dto, dueDay);
       }
 
       return createdAgreement;
     });
 
     return {
-      message: 'ভাড়া চুক্তি সফলভাবে সম্পন্ন হয়েছে',
+      message: 'ভাড়া চুক্তি সফলভাবে সম্পন্ন হয়েছে',
       data: agreement,
     };
   }
 
   async findAll(userId: string, query: RentalAgreementQueryDto) {
-    const where: any = {
+    const where: Prisma.RentalAgreementWhereInput = {
       unit: {
         property: {
           ownerId: userId,
@@ -206,7 +120,7 @@ export class RentalAgreementsService {
     };
 
     if (query.propertyId) {
-      where.unit.propertyId = query.propertyId;
+      (where.unit as Prisma.UnitWhereInput).propertyId = query.propertyId;
     }
 
     if (query.unitId) {
@@ -281,7 +195,7 @@ export class RentalAgreementsService {
     if (!agreement) {
       throw new NotFoundException({
         errorCode: ErrorCode.AGREEMENT_NOT_FOUND,
-        message: 'ভাড়া চুক্তি পাওয়া যায়নি।',
+        message: 'ভাড়া চুক্তি পাওয়া যায়নি।',
       });
     }
 
@@ -331,7 +245,7 @@ export class RentalAgreementsService {
     });
 
     return {
-      message: 'চুক্তির তথ্য সফলভাবে হালনাগাদ করা হয়েছে',
+      message: 'চুক্তির তথ্য সফলভাবে হালনাগাদ করা হয়েছে',
       data: updated,
     };
   }
@@ -348,7 +262,7 @@ export class RentalAgreementsService {
         },
       });
 
-      // Check if there are other ACTIVE agreements for this unit
+      // Vacate the unit only if there are no other ACTIVE agreements on it
       const otherActive = await tx.rentalAgreement.findFirst({
         where: {
           unitId: agreement.data.unitId,
@@ -367,8 +281,116 @@ export class RentalAgreementsService {
     });
 
     return {
-      message: 'ভাড়া চুক্তি সফলভাবে সমাপ্ত করা হয়েছে',
+      message: 'ভাড়া চুক্তি সফলভাবে সমাপ্ত করা হয়েছে',
       data: null,
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Throws ConflictException if the unit already has an active agreement.
+   */
+  private async assertNoActiveAgreementOnUnit(unitId: string): Promise<void> {
+    const existing = await this.prisma.rentalAgreement.findFirst({
+      where: { unitId, status: AgreementStatus.ACTIVE, deletedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException({
+        errorCode: ErrorCode.AGREEMENT_OVERLAP,
+        message: 'এই ইউনিটে ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে।',
+      });
+    }
+  }
+
+  /**
+   * Throws ConflictException if the tenant already has an active agreement.
+   */
+  private async assertNoActiveAgreementForTenant(tenantId: string): Promise<void> {
+    const existing = await this.prisma.rentalAgreement.findFirst({
+      where: { tenantId, status: AgreementStatus.ACTIVE, deletedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException({
+        errorCode: ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS,
+        message: 'এই ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।',
+      });
+    }
+  }
+
+  /**
+   * In-transaction version: re-verifies no active agreement on unit (race-condition guard).
+   */
+  private async assertNoActiveAgreementOnUnitTx(tx: PrismaTx, unitId: string): Promise<void> {
+    const existing = await tx.rentalAgreement.findFirst({
+      where: { unitId, status: AgreementStatus.ACTIVE, deletedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException({
+        errorCode: ErrorCode.AGREEMENT_OVERLAP,
+        message: 'এই ইউনিটে ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে।',
+      });
+    }
+  }
+
+  /**
+   * In-transaction version: re-verifies no active agreement for tenant (race-condition guard).
+   */
+  private async assertNoActiveAgreementForTenantTx(tx: PrismaTx, tenantId: string): Promise<void> {
+    const existing = await tx.rentalAgreement.findFirst({
+      where: { tenantId, status: AgreementStatus.ACTIVE, deletedAt: null },
+    });
+    if (existing) {
+      throw new ConflictException({
+        errorCode: ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS,
+        message: 'এই ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।',
+      });
+    }
+  }
+
+  /**
+   * Creates the initial monthly rent record for the agreement's start month.
+   */
+  private async createInitialMonthlyRent(
+    tx: PrismaTx,
+    agreementId: string,
+    dto: CreateRentalAgreementDto,
+    dueDay: number,
+  ): Promise<void> {
+    const start = new Date(dto.startDate);
+    const year = start.getFullYear();
+    const month = start.getMonth() + 1;
+
+    const totalAmount = DecimalUtil.calculateRentTotal({
+      rent: dto.monthlyRent,
+      serviceFee: dto.serviceFee,
+      parkingFee: dto.parkingFee,
+      extraCharge: dto.extraCharge,
+      lateFee: 0,
+      discount: 0,
+    });
+
+    const dueDate = DateUtil.calculateDueDate(year, month, dueDay);
+
+    await tx.monthlyRent.create({
+      data: {
+        agreementId,
+        year,
+        month,
+        rent: new Prisma.Decimal(dto.monthlyRent),
+        serviceFee: new Prisma.Decimal(dto.serviceFee ?? 0),
+        parkingFee: new Prisma.Decimal(dto.parkingFee ?? 0),
+        extraCharge: new Prisma.Decimal(dto.extraCharge ?? 0),
+        lateFee: new Prisma.Decimal(0),
+        discount: new Prisma.Decimal(0),
+        totalAmount: new Prisma.Decimal(totalAmount.toString()),
+        paidAmount: new Prisma.Decimal(0),
+        remainingAmount: new Prisma.Decimal(totalAmount.toString()),
+        dueDate,
+        status: RentStatus.PENDING,
+      },
+    });
   }
 }

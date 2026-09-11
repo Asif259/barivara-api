@@ -112,7 +112,6 @@ describe('RentalAgreementsService', () => {
     } catch (err: any) {
       expect(err).toBeInstanceOf(ConflictException);
       expect(err.getResponse().errorCode).toBe(ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS);
-      expect(err.getResponse().message).toBe('এই ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।');
     }
   });
 

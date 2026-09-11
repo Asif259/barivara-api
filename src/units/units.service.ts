@@ -19,23 +19,7 @@ export class UnitsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: string, propertyId: string, dto: CreateUnitDto) {
-    const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, deletedAt: null },
-    });
-
-    if (!property) {
-      throw new NotFoundException({
-        errorCode: ErrorCode.PROPERTY_NOT_FOUND,
-        message: 'বাড়ি পাওয়া যায়নি।',
-      });
-    }
-
-    if (property.ownerId !== userId) {
-      throw new ForbiddenException({
-        errorCode: ErrorCode.PROPERTY_ACCESS_DENIED,
-        message: 'এই সম্পত্তিতে আপনার অ্যাক্সেস নেই।',
-      });
-    }
+    await this.validatePropertyOwnership(userId, propertyId);
 
     const unit = await this.prisma.unit.create({
       data: {
@@ -60,23 +44,7 @@ export class UnitsService {
   }
 
   async bulkCreate(userId: string, propertyId: string, dto: BulkCreateUnitsDto) {
-    const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, deletedAt: null },
-    });
-
-    if (!property) {
-      throw new NotFoundException({
-        errorCode: ErrorCode.PROPERTY_NOT_FOUND,
-        message: 'বাড়ি পাওয়া যায়নি।',
-      });
-    }
-
-    if (property.ownerId !== userId) {
-      throw new ForbiddenException({
-        errorCode: ErrorCode.PROPERTY_ACCESS_DENIED,
-        message: 'এই সম্পত্তিতে আপনার অ্যাক্সেস নেই।',
-      });
-    }
+    await this.validatePropertyOwnership(userId, propertyId);
 
     const units = dto.units.map((unit) => ({
       ...unit,
@@ -139,25 +107,9 @@ export class UnitsService {
   }
 
   async findByProperty(userId: string, propertyId: string, query: UnitFilterDto) {
-    const property = await this.prisma.property.findFirst({
-      where: { id: propertyId, deletedAt: null },
-    });
+    await this.validatePropertyOwnership(userId, propertyId);
 
-    if (!property) {
-      throw new NotFoundException({
-        errorCode: ErrorCode.PROPERTY_NOT_FOUND,
-        message: 'বাড়ি পাওয়া যায়নি।',
-      });
-    }
-
-    if (property.ownerId !== userId) {
-      throw new ForbiddenException({
-        errorCode: ErrorCode.PROPERTY_ACCESS_DENIED,
-        message: 'এই সম্পত্তিতে আপনার অ্যাক্সেস নেই।',
-      });
-    }
-
-    const where: any = {
+    const where: Prisma.UnitWhereInput = {
       propertyId,
       deletedAt: null,
     };
@@ -334,5 +286,30 @@ export class UnitsService {
       message: 'ইউনিট সফলভাবে মুছে ফেলা হয়েছে',
       data: null,
     };
+  }
+
+  /**
+   * Validates that the property exists and is owned by the user.
+   */
+  private async validatePropertyOwnership(userId: string, propertyId: string) {
+    const property = await this.prisma.property.findFirst({
+      where: { id: propertyId, deletedAt: null },
+    });
+
+    if (!property) {
+      throw new NotFoundException({
+        errorCode: ErrorCode.PROPERTY_NOT_FOUND,
+        message: 'বাড়ি পাওয়া যায়নি।',
+      });
+    }
+
+    if (property.ownerId !== userId) {
+      throw new ForbiddenException({
+        errorCode: ErrorCode.PROPERTY_ACCESS_DENIED,
+        message: 'এই সম্পত্তিতে আপনার অ্যাক্সেস নেই।',
+      });
+    }
+
+    return property;
   }
 }

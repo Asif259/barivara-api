@@ -15,29 +15,11 @@ import { ErrorCode } from '../common/constants/error-codes';
 import { Prisma, RentStatus, AgreementStatus, AuditAction } from '@prisma/client';
 import { DecimalUtil } from '../common/utils/decimal.util';
 import { DateUtil } from '../common/utils/date.util';
-import { Decimal } from 'decimal.js';
 import { RentCalculationUtil } from '../common/utils/rent-calculation.util';
 
 @Injectable()
 export class MonthlyRentsService {
   constructor(private readonly prisma: PrismaService) {}
-
-  /**
-   * Status calculation helper adhering strictly to spec rule #18
-   */
-  calculateStatus(
-    totalAmount: number | string | Prisma.Decimal | Decimal,
-    paidAmount: number | string | Prisma.Decimal | Decimal,
-    dueDate: Date,
-    currentDate: Date = new Date(),
-  ): RentStatus {
-    return RentCalculationUtil.calculateStatus(
-      totalAmount,
-      paidAmount,
-      dueDate,
-      currentDate,
-    );
-  }
 
   async generate(userId: string, dto: GenerateMonthlyRentDto) {
     const agreementWhere: Prisma.RentalAgreementWhereInput = {
@@ -121,7 +103,7 @@ export class MonthlyRentsService {
           paidAmount: new Prisma.Decimal(0),
           remainingAmount: new Prisma.Decimal(totalAmount.toString()),
           dueDate,
-          status: this.calculateStatus(totalAmount, 0, dueDate),
+          status: RentCalculationUtil.calculateStatus(totalAmount, new Prisma.Decimal(0), dueDate),
         };
       });
 
@@ -226,7 +208,7 @@ export class MonthlyRentsService {
       agreement.dueDay || 5,
     );
 
-    const status = this.calculateStatus(totalAmount, 0, dueDate);
+    const status = RentCalculationUtil.calculateStatus(totalAmount, new Prisma.Decimal(0), dueDate);
 
     const rent = await this.prisma.monthlyRent.create({
       data: {
@@ -472,7 +454,7 @@ export class MonthlyRentsService {
     }
 
     // Lazy status check
-    const currentCalculatedStatus = this.calculateStatus(
+    const currentCalculatedStatus = RentCalculationUtil.calculateStatus(
       rent.totalAmount,
       rent.paidAmount,
       rent.dueDate,
@@ -554,7 +536,7 @@ export class MonthlyRentsService {
       data.paidAmount,
     );
 
-    const newStatus = this.calculateStatus(
+    const newStatus = RentCalculationUtil.calculateStatus(
       newTotalAmount,
       data.paidAmount,
       data.dueDate,
@@ -593,7 +575,7 @@ export class MonthlyRentsService {
 
   async recalculateStatus(userId: string, id: string) {
     const current = await this.findOne(userId, id);
-    const calculated = this.calculateStatus(
+    const calculated = RentCalculationUtil.calculateStatus(
       current.data.totalAmount,
       current.data.paidAmount,
       current.data.dueDate,
@@ -611,10 +593,10 @@ export class MonthlyRentsService {
   }
 
   /**
-   * Lazy refresh: Updates PENDING records that have passed due date to OVERDUE
+   * Lazy refresh: marks all PENDING and PARTIAL rents that have passed their due date as OVERDUE.
+   * Must check both PENDING and PARTIAL to avoid missed partial-payment overdue cases.
    */
   private async refreshOverdueStatuses(userId: string) {
-    const now = new Date();
     await this.prisma.monthlyRent.updateMany({
       where: {
         agreement: {
@@ -625,7 +607,7 @@ export class MonthlyRentsService {
           },
         },
         status: { in: [RentStatus.PENDING, RentStatus.PARTIAL] },
-        dueDate: { lt: now },
+        dueDate: { lt: new Date() },
         remainingAmount: { gt: 0 },
       },
       data: {
