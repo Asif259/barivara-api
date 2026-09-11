@@ -1,4 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 
 /**
@@ -15,11 +16,17 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
+  private readonly nodeEnv: string;
 
-  constructor() {
+  constructor(configService: ConfigService) {
+    // Constructor parameters are in scope before super() — 'this' is not.
+    const nodeEnv = configService.get<string>('nodeEnv') ?? 'development';
+
     super({
-      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+      log: nodeEnv === 'development' ? ['warn', 'error'] : ['error'],
     });
+
+    this.nodeEnv = nodeEnv;
   }
 
   async onModuleInit() {
@@ -27,7 +34,7 @@ export class PrismaService
       await this.$connect();
       this.logger.log('Successfully connected to PostgreSQL via Prisma');
     } catch (error) {
-      if (process.env.NODE_ENV === 'test') {
+      if (this.nodeEnv === 'test') {
         this.logger.warn(`Database connection deferred for test environment: ${error.message}`);
         return;
       }

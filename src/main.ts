@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -12,13 +13,19 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
+  // Resolve config through NestJS DI — eliminates direct process.env usage in bootstrap
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('port') ?? 3000;
+  const nodeEnv = configService.get<string>('nodeEnv') ?? 'development';
+  const frontendUrl = configService.get<string>('frontendUrl');
+
   // Security Headers
   app.use(helmet());
 
   // Global Prefix
   app.setGlobalPrefix('api/v1');
 
-  app.enableCors(createCorsOptions());
+  app.enableCors(createCorsOptions(nodeEnv, frontendUrl));
 
   // Global Validation & Transformation
   app.useGlobalPipes(
@@ -39,10 +46,10 @@ async function bootstrap() {
     new TransformInterceptor(),
   );
 
-  // Swagger / OpenAPI Documentation
-  if (process.env.NODE_ENV !== 'production') {
+  // Swagger / OpenAPI — only in non-production environments
+  if (nodeEnv !== 'production') {
     const config = new DocumentBuilder()
-      .setTitle('BariVara API (বাড়িভাড়া)')
+      .setTitle('BariVara API (বাড়িভাড়া)')
       .setDescription(
         'Bangla-first rental & property rent management backend REST API powering Web and Mobile applications.',
       )
@@ -58,8 +65,6 @@ async function bootstrap() {
     });
     logger.log(`Swagger documentation available at /api/docs`);
   }
-
-  const port = process.env.PORT || 3000;
 
   await app.listen(port, '0.0.0.0');
   logger.log(`🚀 BariVara Backend running on http://localhost:${port}/api/v1`);

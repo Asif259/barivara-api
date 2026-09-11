@@ -222,6 +222,7 @@ model RentalAgreement {
   @@index([tenantId])
   @@index([unitId])
   @@index([status])
+  @@index([unitId, status])
   @@map("rental_agreements")
 }
 
@@ -274,6 +275,7 @@ model Payment {
   monthlyRent MonthlyRent @relation(fields: [monthlyRentId], references: [id], onDelete: Cascade)
 
   @@index([monthlyRentId])
+  @@index([monthlyRentId, status])
   @@index([paymentDate])
   @@map("payments")
 }

@@ -16,9 +16,13 @@ function configuredOrigins(frontendUrl?: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Builds CORS options from explicitly passed values.
+ * Parameters are supplied by main.ts via ConfigService — no direct process.env access here.
+ */
 export function createCorsOptions(
-  nodeEnv = process.env.NODE_ENV || 'development',
-  frontendUrl = process.env.FRONTEND_URL,
+  nodeEnv: string = 'development',
+  frontendUrl?: string,
 ): CorsOptions {
   const allowedOrigins = new Set([
     ...PRODUCTION_ORIGINS,

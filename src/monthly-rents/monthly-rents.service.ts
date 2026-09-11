@@ -171,7 +171,11 @@ export class MonthlyRentsService {
       where: { id: dto.agreementId, deletedAt: null },
       include: {
         unit: {
-          include: { property: true },
+          include: {
+            property: {
+              select: { ownerId: true },
+            },
+          },
         },
       },
     });
@@ -423,10 +427,26 @@ export class MonthlyRentsService {
       include: {
         agreement: {
           include: {
-            tenant: true,
+            tenant: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                email: true,
+              },
+            },
             unit: {
               include: {
-                property: true,
+                property: {
+                  select: {
+                    id: true,
+                    name: true,
+                    address: true,
+                    city: true,
+                    district: true,
+                    ownerId: true,
+                  },
+                },
               },
             },
           },
@@ -465,10 +485,26 @@ export class MonthlyRentsService {
         include: {
           agreement: {
             include: {
-              tenant: true,
+              tenant: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  email: true,
+                },
+              },
               unit: {
                 include: {
-                  property: true,
+                  property: {
+                    select: {
+                      id: true,
+                      name: true,
+                      address: true,
+                      city: true,
+                      district: true,
+                      ownerId: true,
+                    },
+                  },
                 },
               },
             },

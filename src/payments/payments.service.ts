@@ -30,13 +30,14 @@ export class PaymentsService {
       where: { id: dto.monthlyRentId },
       include: {
         agreement: {
-          include: {
+          select: {
             unit: {
-              include: {
-                property: true,
+              select: {
+                property: {
+                  select: { ownerId: true },
+                },
               },
             },
-            tenant: true,
           },
         },
       },
@@ -114,6 +115,33 @@ export class PaymentsService {
 
     // Execute atomic transaction for payment creation and rent balance update
     const result = await this.prisma.$transaction(async (tx: PrismaTx) => {
+      // Re-read monthlyRent inside transaction for concurrency safety & latest state
+      const freshRent = await tx.monthlyRent.findUnique({
+        where: { id: dto.monthlyRentId },
+      });
+
+      if (!freshRent) {
+        throw new NotFoundException({
+          errorCode: ErrorCode.MONTHLY_RENT_NOT_FOUND,
+          message: 'মাসিক ভাড়ার হিসাব পাওয়া যায়নি।',
+        });
+      }
+
+      if (freshRent.status === RentStatus.CANCELLED) {
+        throw new BadRequestException({
+          errorCode: ErrorCode.INVALID_STATUS_TRANSITION,
+          message: 'বাতিলকৃত ভাড়ার জন্য পেমেন্ট নেওয়া সম্ভব নয়।',
+        });
+      }
+
+      const freshRemaining = DecimalUtil.toDecimal(freshRent.remainingAmount);
+      if (paymentAmount.greaterThan(freshRemaining)) {
+        throw new BadRequestException({
+          errorCode: ErrorCode.PAYMENT_EXCEEDS_REMAINING,
+          message: `পেমেন্টের পরিমাণ বকেয়া পরিমাণের চেয়ে বেশি হতে পারে না (সর্বোচ্চ: ৳${freshRemaining.toFixed(2)})।`,
+        });
+      }
+
       // 1. Create Payment (with signature snapshot)
       const payment = await tx.payment.create({
         data: {
@@ -129,18 +157,18 @@ export class PaymentsService {
         },
       });
 
-      // 2. Calculate new totals
-      const newPaidAmount = DecimalUtil.toDecimal(monthlyRent.paidAmount).plus(
+      // 2. Calculate new totals using fresh rent snapshot
+      const newPaidAmount = DecimalUtil.toDecimal(freshRent.paidAmount).plus(
         paymentAmount,
       );
       const newRemaining = DecimalUtil.calculateRemaining(
-        monthlyRent.totalAmount,
+        freshRent.totalAmount,
         newPaidAmount,
       );
       const newStatus = RentCalculationUtil.calculateStatus(
-        monthlyRent.totalAmount,
+        freshRent.totalAmount,
         newPaidAmount,
-        monthlyRent.dueDate,
+        freshRent.dueDate,
         paymentDate,
       );
 
@@ -202,10 +230,12 @@ export class PaymentsService {
         monthlyRent: {
           include: {
             agreement: {
-              include: {
+              select: {
                 unit: {
-                  include: {
-                    property: true,
+                  select: {
+                    property: {
+                      select: { ownerId: true },
+                    },
                   },
                 },
               },
@@ -244,19 +274,20 @@ export class PaymentsService {
         data: { status: PaymentStatus.REVERSED },
       });
 
-      // 2. Sum remaining active COMPLETED payments for this rent
-      const completedPayments = await tx.payment.findMany({
+      // 2. Sum remaining active COMPLETED payments for this rent via database aggregate
+      const paymentAggregate = await tx.payment.aggregate({
         where: {
           monthlyRentId: payment.monthlyRentId,
           status: PaymentStatus.COMPLETED,
         },
-        orderBy: { paymentDate: 'desc' },
+        _sum: {
+          amount: true,
+        },
       });
 
-      let recalculatedPaid = new Decimal(0);
-      for (const p of completedPayments) {
-        recalculatedPaid = recalculatedPaid.plus(DecimalUtil.toDecimal(p.amount));
-      }
+      const recalculatedPaid = paymentAggregate._sum.amount
+        ? DecimalUtil.toDecimal(paymentAggregate._sum.amount)
+        : new Decimal(0);
 
       const totalAmount = DecimalUtil.toDecimal(payment.monthlyRent.totalAmount);
       const newRemaining = DecimalUtil.calculateRemaining(
@@ -269,7 +300,18 @@ export class PaymentsService {
         payment.monthlyRent.dueDate,
       );
 
-      const latestPayment = completedPayments[0] || null;
+      let paidDate: Date | null = null;
+      if (newStatus === RentStatus.PAID) {
+        const latestPayment = await tx.payment.findFirst({
+          where: {
+            monthlyRentId: payment.monthlyRentId,
+            status: PaymentStatus.COMPLETED,
+          },
+          orderBy: { paymentDate: 'desc' },
+          select: { paymentDate: true },
+        });
+        paidDate = latestPayment?.paymentDate || null;
+      }
 
       // 3. Update MonthlyRent
       const updatedRent = await tx.monthlyRent.update({
@@ -278,10 +320,7 @@ export class PaymentsService {
           paidAmount: new Prisma.Decimal(recalculatedPaid.toString()),
           remainingAmount: new Prisma.Decimal(newRemaining.toString()),
           status: newStatus,
-          paidDate:
-            newStatus === RentStatus.PAID && latestPayment
-              ? latestPayment.paymentDate
-              : null,
+          paidDate,
         },
       });
 
@@ -407,10 +446,27 @@ export class PaymentsService {
           include: {
             agreement: {
               include: {
-                tenant: true,
+                tenant: {
+                  select: {
+                    id: true,
+                    name: true,
+                    phone: true,
+                    email: true,
+                  },
+                },
                 unit: {
                   include: {
-                    property: true,
+                    property: {
+                      select: {
+                        id: true,
+                        name: true,
+                        address: true,
+                        city: true,
+                        district: true,
+                        postalCode: true,
+                        ownerId: true,
+                      },
+                    },
                   },
                 },
               },

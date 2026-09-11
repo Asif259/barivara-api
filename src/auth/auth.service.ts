@@ -174,9 +174,7 @@ export class AuthService {
 
   async refresh(dto: RefreshTokenDto) {
     try {
-      const refreshSecret =
-        this.configService.get<string>('jwt.refreshSecret') ||
-        'barivara-jwt-refresh-secret-key-super-secure-2026';
+      const refreshSecret = this.configService.getOrThrow<string>('jwt.refreshSecret');
 
       const payload = await this.jwtService.verifyAsync(dto.refreshToken, {
         secret: refreshSecret,
@@ -263,17 +261,10 @@ export class AuthService {
   ) {
     const payload = { sub: userId, role, email, phone };
 
-    const accessSecret =
-      this.configService.get<string>('jwt.accessSecret') ||
-      'barivara-jwt-access-secret-key-super-secure-2026';
-    const refreshSecret =
-      this.configService.get<string>('jwt.refreshSecret') ||
-      'barivara-jwt-refresh-secret-key-super-secure-2026';
-
-    const accessExpiresIn =
-      this.configService.get<string>('jwt.accessExpiresIn') || '15m';
-    const refreshExpiresIn =
-      this.configService.get<string>('jwt.refreshExpiresIn') || '30d';
+    const accessSecret = this.configService.getOrThrow<string>('jwt.accessSecret');
+    const refreshSecret = this.configService.getOrThrow<string>('jwt.refreshSecret');
+    const accessExpiresIn = this.configService.getOrThrow<string>('jwt.accessExpiresIn');
+    const refreshExpiresIn = this.configService.getOrThrow<string>('jwt.refreshExpiresIn');
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {

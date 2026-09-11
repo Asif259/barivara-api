@@ -11,7 +11,7 @@ describe('environment validation', () => {
   };
 
   it('requires runtime secrets outside test', () => {
-    expect(() => validate({ NODE_ENV: 'production' })).toThrow('Missing required environment variables');
+    expect(() => validate({ NODE_ENV: 'production' })).toThrow('Environment validation failed');
   });
 
   it('permits isolated tests without production infrastructure', () => {
