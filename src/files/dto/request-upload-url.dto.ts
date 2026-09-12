@@ -16,7 +16,7 @@ export class RequestUploadUrlDto {
   @ApiProperty({
     enum: FileCategory,
     description: 'File category determines the target bucket and validation rules',
-    example: 'TENANT_NID',
+    example: 'TENANT_FRONT_NID',
   })
   @IsEnum(FileCategory)
   @IsNotEmpty()

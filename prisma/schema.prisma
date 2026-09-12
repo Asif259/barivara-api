@@ -177,8 +177,8 @@ model Tenant {
   name                  String
   phone                 String
   email                 String?
-  nid                   String?
-  nidImageId            String?
+  nidFrontImageId       String?
+  nidBackImageId        String?
   permanentAddress      String?
   emergencyContactName  String?
   emergencyContactPhone String?
@@ -344,7 +344,8 @@ model AuditLog {
 enum FileCategory {
   PROFILE_IMAGE
   PROPERTY_IMAGE
-  TENANT_NID
+  TENANT_FRONT_NID
+  TENANT_BACK_NID
   TENANT_DOCUMENT
   AGREEMENT_DOCUMENT
   PAYMENT_RECEIPT

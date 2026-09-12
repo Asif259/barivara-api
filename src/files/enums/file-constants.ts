@@ -6,7 +6,8 @@ import { FileCategory } from '@prisma/client';
 export const BUCKET_MAP: Record<FileCategory, string> = {
   PROFILE_IMAGE: 'profile-images',
   PROPERTY_IMAGE: 'property-images',
-  TENANT_NID: 'tenant-documents',
+  TENANT_FRONT_NID: 'tenant-documents',
+  TENANT_BACK_NID: 'tenant-documents',
   TENANT_DOCUMENT: 'tenant-documents',
   AGREEMENT_DOCUMENT: 'tenant-documents',
   PAYMENT_RECEIPT: 'payment-receipts',
@@ -56,7 +57,8 @@ export const ALLOWED_DOCUMENT_MIMES = [
 export const IMAGE_CATEGORIES: FileCategory[] = [
   'PROFILE_IMAGE',
   'PROPERTY_IMAGE',
-  'TENANT_NID',
+  'TENANT_FRONT_NID',
+  'TENANT_BACK_NID',
   'PAYMENT_RECEIPT',
   'OWNER_SIGNATURE',
 ];
@@ -83,7 +85,8 @@ export const DOCUMENT_CATEGORIES: FileCategory[] = [
 export const CATEGORY_PATH_SEGMENT: Record<FileCategory, string> = {
   PROFILE_IMAGE: 'profile',
   PROPERTY_IMAGE: 'cover',
-  TENANT_NID: 'nid',
+  TENANT_FRONT_NID: 'nid-front',
+  TENANT_BACK_NID: 'nid-back',
   TENANT_DOCUMENT: 'document',
   AGREEMENT_DOCUMENT: 'agreement',
   PAYMENT_RECEIPT: 'receipt',

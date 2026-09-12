@@ -181,13 +181,13 @@ describe('DTO and Input Validation Suite', () => {
       expect(errorProps).toContain('agreementDocumentId');
     });
 
-    it('should reject malformed nidImageId in CreateTenantDto', async () => {
+    it('should reject malformed nidFrontImageId in CreateTenantDto', async () => {
       const dto = plainToInstance(CreateTenantDto, {
         name: 'Kamal',
-        nidImageId: 'not-uuid-1234',
+        nidFrontImageId: 'not-uuid-1234',
       });
       const errors = await validate(dto);
-      expect(errors.some((e) => e.property === 'nidImageId')).toBe(true);
+      expect(errors.some((e) => e.property === 'nidFrontImageId')).toBe(true);
     });
   });
 

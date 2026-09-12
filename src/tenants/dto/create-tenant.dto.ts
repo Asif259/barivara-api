@@ -24,17 +24,17 @@ export class CreateTenantDto {
   @IsEmail({}, { message: 'সঠিক ইমেইল দিন' })
   email?: string;
 
-  @ApiPropertyOptional({ example: '1987654321098', description: 'জাতীয় পরিচয়পত্র নম্বর (NID)' })
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'NID কার্ডের সামনের ছবির ফাইল আইডি (UUID)' })
   @IsOptional()
   @Transform(trimEmptyToUndefined)
-  @IsString()
-  nid?: string;
+  @IsUUID('4', { message: 'NID কার্ডের সামনের ছবির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
+  nidFrontImageId?: string;
 
-  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'NID কার্ডের ছবির ফাইল আইডি (UUID)' })
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'NID কার্ডের পেছনের ছবির ফাইল আইডি (UUID)' })
   @IsOptional()
   @Transform(trimEmptyToUndefined)
-  @IsUUID('4', { message: 'NID ছবির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
-  nidImageId?: string;
+  @IsUUID('4', { message: 'NID কার্ডের পেছনের ছবি' })
+  nidBackImageId?: string;
 
   @ApiPropertyOptional({ example: 'গ্রাম: কৃষ্ণপুর, থানা: সদর, জেলা: বগুড়া', description: 'স্থায়ী ঠিকানা' })
   @IsOptional()

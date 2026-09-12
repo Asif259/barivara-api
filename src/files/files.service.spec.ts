@@ -89,7 +89,7 @@ describe('FilesService', () => {
 
   describe('requestUploadUrl', () => {
     const validImageDto: RequestUploadUrlDto = {
-      category: 'TENANT_NID' as FileCategory,
+      category: 'TENANT_FRONT_NID' as FileCategory,
       originalName: 'nid-front.jpg',
       mimeType: 'image/jpeg',
       size: 1024 * 1024, // 1 MB
@@ -117,7 +117,7 @@ describe('FilesService', () => {
       expect(mockPrisma.media.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            category: 'TENANT_NID',
+            category: 'TENANT_FRONT_NID',
             uploadedBy: mockUserId,
             status: 'PENDING',
             bucket: 'tenant-documents',
