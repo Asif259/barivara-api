@@ -53,8 +53,8 @@ export class CreateExpenseDto {
   @IsString()
   createdBy?: string;
 
-  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'ভাউচার বা রশিদের ফাইল আইডি (UUID)' })
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'ভাউচার বা রসিদের ফাইল আইডি (UUID)' })
   @IsOptional()
-  @IsUUID('4', { message: 'রশিদের ফাইল আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
+  @IsUUID('4', { message: 'রসিদের ফাইল আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   receiptFileId?: string;
 }
