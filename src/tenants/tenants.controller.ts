@@ -60,7 +60,7 @@ export class TenantsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'ভাড়াটিয়ার তথ্য সম্পাদনা করুন' })
+  @ApiOperation({ summary: 'ভাড়াটিয়ার তথ্য এডিট করুন' })
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(

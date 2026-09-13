@@ -72,7 +72,7 @@ export class PropertiesController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'বাড়ির তথ্য সম্পাদনা করুন' })
+  @ApiOperation({ summary: 'বাড়ির তথ্য এডিট করুন' })
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   @ApiResponse({ status: 404, type: StandardErrorResponseDto })
   update(
