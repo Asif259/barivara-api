@@ -39,121 +39,160 @@ export class FilesService {
    * Validates MIME, size, generates safe path, creates PENDING record.
    */
   async requestUploadUrl(userId: string, dto: RequestUploadUrlDto) {
-    // 1. Validate MIME type
-    this.validateMimeType(dto.category, dto.mimeType);
+    this.logger.log(
+      `Requesting upload URL for user=${userId} category=${dto.category} originalName=${dto.originalName} size=${dto.size} entityType=${dto.entityType} entityId=${dto.entityId}`
+    );
 
-    // 2. Validate file size
-    this.validateFileSize(dto.category, dto.size);
+    try {
+      // 1. Validate MIME type
+      this.validateMimeType(dto.category, dto.mimeType);
 
-    // 3. Validate entity ownership before embedding entityId in the storage path
-    if (dto.entityType && dto.entityId) {
-      await this.validateEntityOwnership(userId, dto.entityType, dto.entityId);
+      // 2. Validate file size
+      this.validateFileSize(dto.category, dto.size);
+
+      // 3. Validate entity ownership before embedding entityId in the storage path
+      if (dto.entityType && dto.entityId) {
+        await this.validateEntityOwnership(userId, dto.entityType, dto.entityId);
+      }
+
+      // 4. Determine bucket
+      const bucket = BUCKET_MAP[dto.category];
+
+      // 5. Generate safe storage path
+      const storagePath = this.generateStoragePath(
+        dto.category,
+        dto.mimeType,
+        dto.entityType,
+        dto.entityId,
+        userId,
+      );
+
+      // 6. Create PENDING Media record
+      const media = await this.prisma.media.create({
+        data: {
+          originalName: dto.originalName,
+          storagePath,
+          bucket,
+          mimeType: dto.mimeType,
+          size: dto.size,
+          category: dto.category,
+          entityType: dto.entityType || null,
+          entityId: dto.entityId || null,
+          uploadedBy: userId,
+          status: 'PENDING',
+        },
+      });
+
+      // 7. Generate signed upload URL from Supabase
+      const uploadData = await this.supabaseStorage.generateSignedUploadUrl(
+        bucket,
+        storagePath,
+      );
+
+      this.logger.log(`Upload URL generated successfully for fileId=${media.id} bucket=${bucket} path=${storagePath}`);
+
+      return {
+        message: 'আপলোড URL তৈরি হয়েছে',
+        data: {
+          fileId: media.id,
+          uploadUrl: uploadData.signedUrl,
+          token: uploadData.token,
+          storagePath,
+          bucket,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 min
+        },
+      };
+    } catch (err) {
+      this.logger.error(
+        `Failed to request upload URL for user=${userId} category=${dto.category}: ${err.message}`,
+        err.stack
+      );
+      throw err;
     }
-
-    // 4. Determine bucket
-    const bucket = BUCKET_MAP[dto.category];
-
-    // 5. Generate safe storage path
-    const storagePath = this.generateStoragePath(
-      dto.category,
-      dto.mimeType,
-      dto.entityType,
-      dto.entityId,
-      userId,
-    );
-
-    // 6. Create PENDING Media record
-    const media = await this.prisma.media.create({
-      data: {
-        originalName: dto.originalName,
-        storagePath,
-        bucket,
-        mimeType: dto.mimeType,
-        size: dto.size,
-        category: dto.category,
-        entityType: dto.entityType || null,
-        entityId: dto.entityId || null,
-        uploadedBy: userId,
-        status: 'PENDING',
-      },
-    });
-
-    // 7. Generate signed upload URL from Supabase
-    const uploadData = await this.supabaseStorage.generateSignedUploadUrl(
-      bucket,
-      storagePath,
-    );
-
-    return {
-      message: 'আপলোড URL তৈরি হয়েছে',
-      data: {
-        fileId: media.id,
-        uploadUrl: uploadData.signedUrl,
-        token: uploadData.token,
-        storagePath,
-        bucket,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 min
-      },
-    };
   }
 
   /**
    * Mark an upload as completed after verifying the object exists in storage.
    */
   async completeUpload(userId: string, fileId: string) {
-    const media = await this.prisma.media.findUnique({
-      where: { id: fileId },
-    });
+    this.logger.log(`Completing upload for fileId=${fileId} userId=${userId}`);
 
-    if (!media) {
-      throw new NotFoundException({
-        errorCode: ErrorCode.FILE_NOT_FOUND,
-        message: 'ফাইল পাওয়া যায়নি।',
-      });
-    }
-
-    if (media.uploadedBy !== userId) {
-      throw new ForbiddenException({
-        errorCode: ErrorCode.FILE_ACCESS_DENIED,
-        message: 'এই ফাইলে আপনার অ্যাক্সেস নেই।',
-      });
-    }
-
-    if (media.status !== 'PENDING') {
-      throw new BadRequestException({
-        errorCode: ErrorCode.INVALID_STATUS_TRANSITION,
-        message: `ফাইলের বর্তমান অবস্থা "${media.status}"; শুধুমাত্র PENDING ফাইল complete করা যায়।`,
-      });
-    }
-
-    // Verify the object actually exists in Supabase Storage
-    const exists = await this.supabaseStorage.objectExists(
-      media.bucket,
-      media.storagePath,
-    );
-
-    if (!exists) {
-      // Mark as FAILED
-      await this.prisma.media.update({
+    try {
+      const media = await this.prisma.media.findUnique({
         where: { id: fileId },
-        data: { status: 'FAILED' },
       });
 
-      throw new NotFoundException({
-        errorCode: ErrorCode.FILE_NOT_IN_STORAGE,
-        message: 'ফাইলটি স্টোরেজে পাওয়া যায়নি। আপলোড সম্পন্ন হয়নি।',
+      if (!media) {
+        this.logger.warn(`File not found for completion: fileId=${fileId}`);
+        throw new NotFoundException({
+          errorCode: ErrorCode.FILE_NOT_FOUND,
+          message: 'ফাইল পাওয়া যায়নি।',
+        });
+      }
+
+      if (media.uploadedBy !== userId) {
+        this.logger.warn(
+          `Access denied completing upload: fileId=${fileId} userId=${userId} uploadedBy=${media.uploadedBy}`
+        );
+        throw new ForbiddenException({
+          errorCode: ErrorCode.FILE_ACCESS_DENIED,
+          message: 'এই ফাইলে আপনার অ্যাক্সেস নেই।',
+        });
+      }
+
+      if (media.status !== 'PENDING') {
+        this.logger.warn(
+          `Invalid status transition for completion: fileId=${fileId} currentStatus=${media.status}`
+        );
+        throw new BadRequestException({
+          errorCode: ErrorCode.INVALID_STATUS_TRANSITION,
+          message: `ফাইলের বর্তমান অবস্থা "${media.status}"; শুধুমাত্র PENDING ফাইল complete করা যায়।`,
+        });
+      }
+
+      // Verify the object actually exists in Supabase Storage
+      const exists = await this.supabaseStorage.objectExists(
+        media.bucket,
+        media.storagePath,
+      );
+
+      if (!exists) {
+        this.logger.warn(
+          `File not found in storage for completion: fileId=${fileId} bucket=${media.bucket} path=${media.storagePath}`
+        );
+        // Mark as FAILED
+        await this.prisma.media.update({
+          where: { id: fileId },
+          data: { status: 'FAILED' },
+        });
+
+        throw new NotFoundException({
+          errorCode: ErrorCode.FILE_NOT_IN_STORAGE,
+          message: 'ফাইলটি স্টোরেজে পাওয়া যায়নি। আপলোড সম্পন্ন হয়নি।',
+        });
+      }
+
+      const updated = await this.prisma.media.update({
+        where: { id: fileId },
+        data: { status: 'COMPLETED' },
       });
+
+      this.logger.log(`Upload completed successfully: fileId=${fileId}`);
+
+      return {
+        message: 'ফাইল আপলোড সফলভাবে সম্পন্ন হয়েছে',
+        data: this.sanitizeMedia(updated),
+      };
+    } catch (err) {
+      if (err instanceof NotFoundException || err instanceof ForbiddenException || err instanceof BadRequestException) {
+        throw err;
+      }
+      this.logger.error(
+        `Failed to complete upload for fileId=${fileId} userId=${userId}: ${err.message}`,
+        err.stack
+      );
+      throw err;
     }
-
-    const updated = await this.prisma.media.update({
-      where: { id: fileId },
-      data: { status: 'COMPLETED' },
-    });
-
-    return {
-      message: 'ফাইল আপলোড সফলভাবে সম্পন্ন হয়েছে',
-      data: this.sanitizeMedia(updated),
-    };
   }
 
   /**
