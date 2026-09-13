@@ -1,0 +1,4 @@
+-- AlterEnum: Add new tenant image categories to FileCategory enum
+ALTER TYPE "FileCategory" ADD VALUE IF NOT EXISTS 'TENANT_PROFILE_PICTURE';
+ALTER TYPE "FileCategory" ADD VALUE IF NOT EXISTS 'TENANT_FRONT_NID';
+ALTER TYPE "FileCategory" ADD VALUE IF NOT EXISTS 'TENANT_BACK_NID';
