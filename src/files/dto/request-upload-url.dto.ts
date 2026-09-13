@@ -45,7 +45,7 @@ export class RequestUploadUrlDto {
   })
   @IsNumber()
   @IsPositive()
-  @Max(50 * 1024 * 1024, { message: 'ফাইলের আকার ৫০MB সীমা অতিক্রম করতে পারবে না।' })
+  @Max(5 * 1024 * 1024, { message: 'ফাইলের আকার 5MB সীমা অতিক্রম করতে পারবে না।' })
   size: number;
 
   @ApiPropertyOptional({

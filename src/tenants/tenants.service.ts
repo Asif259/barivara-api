@@ -19,6 +19,7 @@ export class TenantsService {
         name: dto.name,
         phone: dto.phone || '',
         email: dto.email ? dto.email.toLowerCase() : null,
+        profilePictureId: dto.profilePictureId || null,
         nidFrontImageId: dto.nidFrontImageId || null,
         nidBackImageId: dto.nidBackImageId || null,
         permanentAddress: dto.permanentAddress || null,

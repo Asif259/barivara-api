@@ -24,6 +24,12 @@ export class CreateTenantDto {
   @IsEmail({}, { message: 'সঠিক ইমেইল দিন' })
   email?: string;
 
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'প্রোফাইল ছবির ফাইল আইডি (UUID)' })
+  @IsOptional()
+  @Transform(trimEmptyToUndefined)
+  @IsUUID('4', { message: 'প্রোফাইল ছবির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
+  profilePictureId?: string;
+
   @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb', description: 'NID কার্ডের সামনের ছবির ফাইল আইডি (UUID)' })
   @IsOptional()
   @Transform(trimEmptyToUndefined)

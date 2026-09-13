@@ -40,6 +40,7 @@ const mockTenant = (overrides: Partial<any> = {}) => ({
   name: 'কামাল হোসেন',
   phone: '01812345678',
   email: null,
+  profilePictureId: null,
   nidFrontImageId: null,
   nidBackImageId: null,
   permanentAddress: null,
