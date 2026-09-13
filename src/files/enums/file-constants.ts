@@ -4,7 +4,7 @@ import { FileCategory } from '@prisma/client';
  * Maps each FileCategory to its Supabase Storage bucket name.
  */
 export const BUCKET_MAP: Record<FileCategory, string> = {
-  PROFILE_IMAGE: 'profile-images',
+  PROFILE_IMAGE: 'tenant-documents',
   PROPERTY_IMAGE: 'property-images',
   TENANT_PROFILE_PICTURE: 'tenant-documents',
   TENANT_FRONT_NID: 'tenant-documents',
@@ -29,7 +29,6 @@ export const SENSITIVE_BUCKETS = [
  * All Supabase Storage buckets used by BariVara.
  */
 export const ALL_BUCKETS = [
-  { name: 'profile-images', isPublic: true },
   { name: 'property-images', isPublic: true },
   { name: 'tenant-documents', isPublic: false },
   { name: 'payment-receipts', isPublic: false },

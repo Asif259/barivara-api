@@ -316,8 +316,8 @@ describe('FilesService', () => {
         id: mockFileId,
         uploadedBy: mockUserId,
         status: 'COMPLETED',
-        bucket: 'profile-images', // public
-        storagePath: 'user/id/profile/uuid.jpg',
+        bucket: 'property-images', // public
+        storagePath: 'property/id/cover/uuid.jpg',
       });
 
       const result = await service.getFileUrl(mockUserId, mockFileId);
