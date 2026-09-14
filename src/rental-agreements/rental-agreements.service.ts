@@ -146,7 +146,7 @@ export class RentalAgreementsService {
           : { createdAt: 'desc' },
         include: {
           tenant: {
-            select: { id: true, name: true, phone: true },
+            select: { id: true, name: true, phone: true, profilePictureId: true },
           },
           unit: {
             select: {

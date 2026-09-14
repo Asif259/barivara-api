@@ -405,23 +405,23 @@ export class PaymentsService {
         orderBy: query.sortBy
           ? { [query.sortBy]: query.sortOrder || 'desc' }
           : { paymentDate: 'desc' },
-        include: {
-          monthlyRent: {
-            include: {
-              agreement: {
-                include: {
-                  tenant: { select: { id: true, name: true, phone: true } },
-                  unit: {
-                    select: {
-                      id: true,
-                      unitNumber: true,
-                      property: { select: { id: true, name: true } },
+include: {
+            monthlyRent: {
+              include: {
+                agreement: {
+                  include: {
+                    tenant: { select: { id: true, name: true, phone: true, profilePictureId: true } },
+                    unit: {
+                      select: {
+                        id: true,
+                        unitNumber: true,
+                        property: { select: { id: true, name: true } },
+                      },
                     },
                   },
                 },
               },
             },
-          },
         },
       }),
     ]);

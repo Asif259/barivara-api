@@ -296,21 +296,21 @@ export class MonthlyRentsService {
         orderBy: query.sortBy
           ? { [query.sortBy]: query.sortOrder || 'desc' }
           : [{ year: 'desc' }, { month: 'desc' }],
-        include: {
-          agreement: {
-            include: {
-              tenant: { select: { id: true, name: true, phone: true } },
-              unit: {
-                select: {
-                  id: true,
-                  unitNumber: true,
-                  property: { select: { id: true, name: true } },
+include: {
+            agreement: {
+              include: {
+                tenant: { select: { id: true, name: true, phone: true, profilePictureId: true } },
+                unit: {
+                  select: {
+                    id: true,
+                    unitNumber: true,
+                    property: { select: { id: true, name: true } },
+                  },
                 },
               },
             },
+            _count: { select: { payments: true } },
           },
-          _count: { select: { payments: true } },
-        },
       }),
     ]);
 
@@ -374,19 +374,19 @@ export class MonthlyRentsService {
           { dueDate: 'asc' },
           { remainingAmount: 'desc' },
         ],
-        include: {
-          agreement: {
-            include: {
-              tenant: { select: { id: true, name: true, phone: true } },
-              unit: {
-                select: {
-                  id: true,
-                  unitNumber: true,
-                  property: { select: { id: true, name: true } },
+include: {
+            agreement: {
+              include: {
+                tenant: { select: { id: true, name: true, phone: true, profilePictureId: true } },
+                unit: {
+                  select: {
+                    id: true,
+                    unitNumber: true,
+                    property: { select: { id: true, name: true } },
+                  },
                 },
               },
             },
-          },
         },
       }),
     ]);
