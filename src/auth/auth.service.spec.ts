@@ -8,10 +8,11 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { ErrorCode } from '../common/constants/error-codes';
 import * as argon2 from 'argon2';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 // Mock argon2 so tests don't pay bcrypt/argon2 CPU cost
 jest.mock('argon2', () => ({
-  hash: jest.fn().mockResolvedValue('$hashed$password'),
+  hash: jest.fn<() => Promise<string>>().mockResolvedValue('$hashed$password'),
   verify: jest.fn(),
 }));
 
@@ -19,7 +20,7 @@ const mockPrisma = {
   user: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
-    create: jest.fn(),
+    create: jest.fn<(args: any) => Promise<any>>(),
   },
   auditLog: {
     create: jest.fn().mockResolvedValue({}),
@@ -27,7 +28,7 @@ const mockPrisma = {
 };
 
 const mockJwt = {
-  signAsync: jest.fn().mockResolvedValue('mock.jwt.token'),
+  signAsync: jest.fn<() => Promise<string>>().mockResolvedValue('mock.jwt.token'),
   verifyAsync: jest.fn(),
 };
 

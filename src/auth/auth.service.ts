@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { AuditAction } from '@prisma/client';
 
@@ -252,6 +253,54 @@ export class AuthService {
     return {
       message: 'প্রোফাইল তথ্য',
       data: user,
+    };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+        message: 'নতুন পাসওয়ার্ড এবং নিশ্চিতকরণ পাসওয়ার্ড মিলছে না।',
+      });
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+        message: 'নতুন পাসওয়ার্ড বর্তমান পাসওয়ার্ডের সমান হতে পারবে না।',
+      });
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException({
+        errorCode: ErrorCode.AUTH_UNAUTHORIZED,
+        message: 'ব্যবহারকারী পাওয়া যায়নি।',
+      });
+    }
+
+    const passwordValid = await argon2.verify(user.passwordHash, dto.currentPassword);
+    if (!passwordValid) {
+      throw new UnauthorizedException({
+        errorCode: ErrorCode.AUTH_INVALID_CREDENTIALS,
+        message: 'বর্তমান পাসওয়ার্ড ভুল।',
+      });
+    }
+
+    const newPasswordHash = await argon2.hash(dto.newPassword);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: newPasswordHash,
+      },
+    });
+    return {
+      message: 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে',
+      data: null,
     };
   }
 

@@ -14,6 +14,7 @@ import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto, RefreshTokenDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -87,5 +88,20 @@ export class AuthController {
   @ApiResponse({ status: 401, type: StandardErrorResponseDto })
   async getMe(@CurrentUser() user: CurrentUserPayload) {
     return this.authService.getProfile(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'পাসওয়ার্ড পরিবর্তন করুন' })
+  @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
+  @ApiResponse({ status: 400, type: StandardErrorResponseDto })
+  @ApiResponse({ status: 401, type: StandardErrorResponseDto })
+  async changePassword(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.id, dto);
   }
 }

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -13,6 +14,7 @@ const mockAuthService = {
   refresh: jest.fn(),
   logout: jest.fn(),
   getProfile: jest.fn(),
+  changePassword: jest.fn(),
 };
 
 // Fake request object
@@ -43,7 +45,7 @@ describe('AuthController', () => {
     it('delegates to authService.register and returns its result', async () => {
       const dto = { name: 'টেস্ট', email: 'test@example.com', password: 'pass123' };
       const expected = { message: 'অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে', data: { user: {}, accessToken: 'token' } };
-      mockAuthService.register.mockResolvedValue(expected);
+      mockAuthService.register.mockResolvedValue(expected as never);
 
       const result = await controller.register(dto as any, mockReq as any);
       expect(result).toBe(expected);
@@ -62,7 +64,7 @@ describe('AuthController', () => {
     it('delegates to authService.login with IP and user-agent', async () => {
       const dto = { identifier: 'test@example.com', password: 'pass123' };
       const expected = { message: 'লগইন সফল হয়েছে', data: { accessToken: 'token' } };
-      mockAuthService.login.mockResolvedValue(expected);
+      mockAuthService.login.mockResolvedValue(expected as never);
 
       const result = await controller.login(dto as any, mockReq as any);
       expect(result).toBe(expected);
@@ -77,7 +79,7 @@ describe('AuthController', () => {
     it('delegates to authService.refresh', async () => {
       const dto = { refreshToken: 'refresh.token.here' };
       const expected = { message: 'টোকেন নবায়ন', data: { accessToken: 'new.token' } };
-      mockAuthService.refresh.mockResolvedValue(expected);
+      mockAuthService.refresh.mockResolvedValue(expected as never);
 
       const result = await controller.refresh(dto);
       expect(result).toBe(expected);
@@ -91,7 +93,7 @@ describe('AuthController', () => {
   describe('POST /auth/logout', () => {
     it('delegates to authService.logout with current user id', async () => {
       const user = { id: 'user-1', role: 'OWNER' };
-      mockAuthService.logout.mockResolvedValue({ message: 'লগআউট সফল', data: null });
+      mockAuthService.logout.mockResolvedValue({ message: 'লগআউট সফল', data: null } as never);
 
       const result = await controller.logout(user as any, mockReq as any);
       expect(mockAuthService.logout).toHaveBeenCalledWith('user-1', expect.any(String), undefined);
@@ -106,11 +108,31 @@ describe('AuthController', () => {
     it('delegates to authService.getProfile with current user id', async () => {
       const user = { id: 'user-1', role: 'OWNER' };
       const expected = { message: 'প্রোফাইল তথ্য', data: { id: 'user-1' } };
-      mockAuthService.getProfile.mockResolvedValue(expected);
+      mockAuthService.getProfile.mockResolvedValue(expected as never);
 
       const result = await controller.getMe(user as any);
       expect(result).toBe(expected);
       expect(mockAuthService.getProfile).toHaveBeenCalledWith('user-1');
+    });
+  });
+
+  // =========================================================================
+  // POST /auth/change-password
+  // =========================================================================
+  describe('POST /auth/change-password', () => {
+    it('delegates to authService.changePassword with current user id and dto', async () => {
+      const user = { id: 'user-1', role: 'OWNER' };
+      const dto = {
+        currentPassword: 'OldPassword123',
+        newPassword: 'NewPassword123',
+        confirmPassword: 'NewPassword123',
+      };
+      const expected = { message: 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে', data: null };
+      mockAuthService.changePassword.mockResolvedValue(expected as never);
+
+      const result = await controller.changePassword(user as any, dto);
+      expect(result).toBe(expected);
+      expect(mockAuthService.changePassword).toHaveBeenCalledWith('user-1', dto);
     });
   });
 });
