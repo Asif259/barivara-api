@@ -15,6 +15,10 @@ const mockAuthService = {
   logout: jest.fn(),
   getProfile: jest.fn(),
   changePassword: jest.fn(),
+  forgotPassword: jest.fn(),
+  verifyPasswordResetOtp: jest.fn(),
+  resetPassword: jest.fn(),
+  resetPasswordDirect: jest.fn(),
 };
 
 // Fake request object
@@ -133,6 +137,76 @@ describe('AuthController', () => {
       const result = await controller.changePassword(user as any, dto);
       expect(result).toBe(expected);
       expect(mockAuthService.changePassword).toHaveBeenCalledWith('user-1', dto);
+    });
+  });
+
+  // =========================================================================
+  // POST /auth/forgot-password
+  // =========================================================================
+  describe('POST /auth/forgot-password', () => {
+    it('delegates to authService.forgotPassword', async () => {
+      const dto = { identifier: 'user@example.com' };
+      const expected = { message: 'ওটিপি পাঠানো হয়েছে', data: { identifier: 'user@example.com' } };
+      mockAuthService.forgotPassword.mockResolvedValue(expected as never);
+
+      const result = await controller.forgotPassword(dto, mockReq as any);
+      expect(result).toBe(expected);
+      expect(mockAuthService.forgotPassword).toHaveBeenCalledWith(dto, '127.0.0.1', undefined);
+    });
+  });
+
+  // =========================================================================
+  // POST /auth/verify-password-reset-otp
+  // =========================================================================
+  describe('POST /auth/verify-password-reset-otp', () => {
+    it('delegates to authService.verifyPasswordResetOtp', async () => {
+      const dto = { identifier: 'user@example.com', otp: '123456' };
+      const expected = { message: 'যাচাই হয়েছে', data: { resetToken: 'token123' } };
+      mockAuthService.verifyPasswordResetOtp.mockResolvedValue(expected as never);
+
+      const result = await controller.verifyPasswordResetOtp(dto, mockReq as any);
+      expect(result).toBe(expected);
+      expect(mockAuthService.verifyPasswordResetOtp).toHaveBeenCalledWith(dto, '127.0.0.1', undefined);
+    });
+  });
+
+  // =========================================================================
+  // POST /auth/reset-password
+  // =========================================================================
+  describe('POST /auth/reset-password', () => {
+    it('delegates to authService.resetPassword', async () => {
+      const dto = {
+        identifier: 'user@example.com',
+        resetToken: 'token123',
+        newPassword: 'NewPassword123',
+        confirmPassword: 'NewPassword123',
+      };
+      const expected = { message: 'পাসওয়ার্ড রিসেট সফল হয়েছে', data: null };
+      mockAuthService.resetPassword.mockResolvedValue(expected as never);
+
+      const result = await controller.resetPassword(dto, mockReq as any);
+      expect(result).toBe(expected);
+      expect(mockAuthService.resetPassword).toHaveBeenCalledWith(dto, '127.0.0.1', undefined);
+    });
+  });
+
+  // =========================================================================
+  // POST /auth/reset-password-direct
+  // =========================================================================
+  describe('POST /auth/reset-password-direct', () => {
+    it('delegates to authService.resetPasswordDirect', async () => {
+      const dto = {
+        identifier: 'user@example.com',
+        currentPassword: 'OldPassword123',
+        newPassword: 'NewPassword123',
+        confirmPassword: 'NewPassword123',
+      };
+      const expected = { message: 'পাসওয়ার্ড পরিবর্তন সফল হয়েছে', data: null };
+      mockAuthService.resetPasswordDirect.mockResolvedValue(expected as never);
+
+      const result = await controller.resetPasswordDirect(dto, mockReq as any);
+      expect(result).toBe(expected);
+      expect(mockAuthService.resetPasswordDirect).toHaveBeenCalledWith(dto, '127.0.0.1', undefined);
     });
   });
 });

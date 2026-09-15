@@ -30,6 +30,10 @@ export enum ErrorCode {
   FILE_ACCESS_DENIED = 'FILE_ACCESS_DENIED',
   FILE_NOT_IN_STORAGE = 'FILE_NOT_IN_STORAGE',
   SUPABASE_NOT_CONFIGURED = 'SUPABASE_NOT_CONFIGURED',
+  INVALID_OTP = 'INVALID_OTP',
+  OTP_EXPIRED = 'OTP_EXPIRED',
+  OTP_LIMIT_EXCEEDED = 'OTP_LIMIT_EXCEEDED',
+  RESET_TOKEN_INVALID = 'RESET_TOKEN_INVALID',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
 }
 
@@ -65,6 +69,10 @@ export const BanglaMessages: Record<ErrorCode, string> = {
   [ErrorCode.FILE_ACCESS_DENIED]: 'এই ফাইলে আপনার অ্যাক্সেস নেই।',
   [ErrorCode.FILE_NOT_IN_STORAGE]: 'ফাইলটি স্টোরেজে পাওয়া যায়নি। আপলোড সম্পন্ন হয়নি।',
   [ErrorCode.SUPABASE_NOT_CONFIGURED]: 'Supabase স্টোরেজ কনফিগার করা হয়নি।',
+  [ErrorCode.INVALID_OTP]: 'ওটিপি কোডটি ভুল। অনুগ্রহ করে সঠিক কোড দিন।',
+  [ErrorCode.OTP_EXPIRED]: 'ওটিপির মেয়াদ শেষ হয়ে গেছে। অনুগ্রহ করে নতুন কোড নিন।',
+  [ErrorCode.OTP_LIMIT_EXCEEDED]: 'অতিরিক্ত ভুল চেষ্টার কারণে ওটিপি বাতিল হয়েছে। পুনরায় ওটিপি পাঠান।',
+  [ErrorCode.RESET_TOKEN_INVALID]: 'পাসওয়ার্ড রিসেট সেশন অবৈধ বা মেয়াদোত্তীর্ণ। আবার চেষ্টা করুন।',
   [ErrorCode.INTERNAL_ERROR]: 'একটি অপ্রত্যাশিত সমস্যা হয়েছে। পুনরায় চেষ্টা করুন।',
 };
 
@@ -100,6 +108,10 @@ export const EnglishMessages: Record<ErrorCode, string> = {
   [ErrorCode.FILE_ACCESS_DENIED]: 'You do not have access to this file.',
   [ErrorCode.FILE_NOT_IN_STORAGE]: 'File not found in storage. Upload may not have completed.',
   [ErrorCode.SUPABASE_NOT_CONFIGURED]: 'Supabase storage is not configured.',
+  [ErrorCode.INVALID_OTP]: 'Invalid OTP code. Please check and try again.',
+  [ErrorCode.OTP_EXPIRED]: 'OTP code has expired. Please request a new code.',
+  [ErrorCode.OTP_LIMIT_EXCEEDED]: 'Maximum verification attempts exceeded. Please request a new OTP.',
+  [ErrorCode.RESET_TOKEN_INVALID]: 'Password reset session is invalid or expired. Please start over.',
   [ErrorCode.INTERNAL_ERROR]: 'An unexpected internal error occurred.',
 };
 
