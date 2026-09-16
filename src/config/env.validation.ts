@@ -103,6 +103,15 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   LOG_LEVEL: string;
+
+  @IsOptional()
+  @IsString()
+  RESEND_API_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  RESEND_FROM?: string;
+
 }
 
 export function validate(config: Record<string, unknown>): EnvironmentVariables {
