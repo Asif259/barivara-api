@@ -29,9 +29,15 @@ export class EmailService {
           port,
           secure,
           auth: { user, pass },
-        });
+          // Force IPv4 to prevent ENETUNREACH / connection timeouts on cloud container platforms
+          // like Render where outbound IPv6 routes are unavailable
+          family: 4,
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 15000,
+        } as nodemailer.TransportOptions);
         this.isConfigured = true;
-        this.logger.log(`SMTP configured with host: ${host}:${port}`);
+        this.logger.log(`SMTP configured with host: ${host}:${port} (IPv4 enforced)`);
       } catch (err) {
         this.logger.error('Failed to initialize SMTP transporter', err);
       }

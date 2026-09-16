@@ -1,3 +1,4 @@
+import * as dns from 'dns';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -8,6 +9,14 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { createCorsOptions } from './config/cors.config';
+
+// Force DNS resolution to prefer IPv4 first.
+// Prevents ENETUNREACH errors on cloud container platforms (like Render) that lack outbound IPv6 routing.
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {
+  // Ignore in environments where not supported
+}
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
