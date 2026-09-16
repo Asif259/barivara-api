@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -378,12 +379,20 @@ export class AuthService {
     });
 
     // Send OTP email
-    await this.emailService.sendPasswordResetOtp({
+    const sent = await this.emailService.sendPasswordResetOtp({
       to: user.email,
       name: user.name,
       otp,
       expiresInMinutes: 10,
     });
+
+    if (!sent) {
+      this.pendingOtps.delete(normalizedIdentifier);
+      throw new InternalServerErrorException({
+        errorCode: ErrorCode.INTERNAL_ERROR,
+        message: 'ওটিপি ইমেইল পাঠাতে ব্যর্থ হয়েছে। অনুগ্রহ করে আপনার ইমেইল সেটিং বা সংযোগ যাচাই করুন।',
+      });
+    }
 
     await this.prisma.auditLog.create({
       data: {
