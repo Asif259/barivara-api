@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsInt,
   IsOptional,
   IsUUID,
@@ -27,4 +28,10 @@ export class GenerateMonthlyRentDto {
   @IsOptional()
   @IsUUID('4', { message: 'বাড়ির আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   propertyId?: string;
+
+  @ApiPropertyOptional({ example: false, default: false, description: 'চলতি মাসে চুক্তি শুরু করা নতুন ভাড়াটিয়াদের চলতি মাসের বিলও তৈরি করবেন কি না' })
+  @IsOptional()
+  @IsBoolean()
+  includeCurrentMonthNewTenants?: boolean = false;
 }
+
