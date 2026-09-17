@@ -213,35 +213,156 @@ export class RentalAgreementsService {
   }
 
   async update(userId: string, id: string, dto: UpdateRentalAgreementDto) {
-    await this.findOne(userId, id);
+    const existing = await this.findOne(userId, id);
+    const existingAgreement = existing.data;
 
-    const updated = await this.prisma.rentalAgreement.update({
-      where: { id },
-      data: {
-        ...(dto.monthlyRent !== undefined && {
-          monthlyRent: new Prisma.Decimal(dto.monthlyRent),
-        }),
-        ...(dto.serviceFee !== undefined && {
-          serviceFee: new Prisma.Decimal(dto.serviceFee),
-        }),
-        ...(dto.parkingFee !== undefined && {
-          parkingFee: new Prisma.Decimal(dto.parkingFee),
-        }),
-        ...(dto.extraCharge !== undefined && {
-          extraCharge: new Prisma.Decimal(dto.extraCharge),
-        }),
-        ...(dto.dueDay !== undefined && { dueDay: dto.dueDay }),
-        ...(dto.securityDeposit !== undefined && {
-          securityDeposit: new Prisma.Decimal(dto.securityDeposit),
-        }),
-        ...(dto.endDate !== undefined && {
-          endDate: dto.endDate ? new Date(dto.endDate) : null,
-        }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
-        ...(dto.agreementDocumentId !== undefined && {
-          agreementDocumentId: dto.agreementDocumentId,
-        }),
-      },
+    // 1. If tenantId is changing
+    if (dto.tenantId && dto.tenantId !== existingAgreement.tenantId) {
+      const tenant = await this.prisma.tenant.findFirst({
+        where: { id: dto.tenantId, deletedAt: null },
+      });
+      if (!tenant) {
+        throw new NotFoundException({
+          errorCode: ErrorCode.TENANT_NOT_FOUND,
+          message: 'ভাড়াটিয়া পাওয়া যায়নি।',
+        });
+      }
+      const targetStatus = dto.status ?? existingAgreement.status;
+      if (targetStatus === AgreementStatus.ACTIVE) {
+        const activeOther = await this.prisma.rentalAgreement.findFirst({
+          where: {
+            tenantId: dto.tenantId,
+            id: { not: id },
+            status: AgreementStatus.ACTIVE,
+            deletedAt: null,
+          },
+        });
+        if (activeOther) {
+          throw new ConflictException({
+            errorCode: ErrorCode.TENANT_ACTIVE_AGREEMENT_EXISTS,
+            message: 'নতুন ভাড়াটিয়ার ইতোমধ্যে একটি সক্রিয় ভাড়ার চুক্তি রয়েছে।',
+          });
+        }
+      }
+    }
+
+    // 2. If unitId is changing
+    if (dto.unitId && dto.unitId !== existingAgreement.unitId) {
+      const unit = await this.prisma.unit.findFirst({
+        where: { id: dto.unitId, deletedAt: null },
+        include: { property: true },
+      });
+      if (!unit) {
+        throw new NotFoundException({
+          errorCode: ErrorCode.UNIT_NOT_FOUND,
+          message: 'ভাড়া ইউনিট পাওয়া যায়নি।',
+        });
+      }
+      if (unit.property.ownerId !== userId) {
+        throw new ForbiddenException({
+          errorCode: ErrorCode.PROPERTY_ACCESS_DENIED,
+          message: 'এই সম্পত্তিতে আপনার অ্যাক্সেস নেই।',
+        });
+      }
+      const targetStatus = dto.status ?? existingAgreement.status;
+      if (targetStatus === AgreementStatus.ACTIVE) {
+        const activeOtherOnUnit = await this.prisma.rentalAgreement.findFirst({
+          where: {
+            unitId: dto.unitId,
+            id: { not: id },
+            status: AgreementStatus.ACTIVE,
+            deletedAt: null,
+          },
+        });
+        if (activeOtherOnUnit) {
+          throw new ConflictException({
+            errorCode: ErrorCode.AGREEMENT_OVERLAP,
+            message: 'নতুন ইউনিটে ইতিমধ্যে একটি সক্রিয় চুক্তি রয়েছে।',
+          });
+        }
+      }
+    }
+
+    // 3. Transaction to update agreement and unit statuses
+    const updated = await this.prisma.$transaction(async (tx: PrismaTx) => {
+      const oldUnitId = existingAgreement.unitId;
+      const newUnitId = dto.unitId || oldUnitId;
+      const targetStatus = dto.status ?? existingAgreement.status;
+
+      const res = await tx.rentalAgreement.update({
+        where: { id },
+        data: {
+          ...(dto.tenantId !== undefined && { tenantId: dto.tenantId }),
+          ...(dto.unitId !== undefined && { unitId: dto.unitId }),
+          ...(dto.monthlyRent !== undefined && {
+            monthlyRent: new Prisma.Decimal(dto.monthlyRent),
+          }),
+          ...(dto.serviceFee !== undefined && {
+            serviceFee: new Prisma.Decimal(dto.serviceFee),
+          }),
+          ...(dto.parkingFee !== undefined && {
+            parkingFee: new Prisma.Decimal(dto.parkingFee),
+          }),
+          ...(dto.extraCharge !== undefined && {
+            extraCharge: new Prisma.Decimal(dto.extraCharge),
+          }),
+          ...(dto.dueDay !== undefined && { dueDay: dto.dueDay }),
+          ...(dto.securityDeposit !== undefined && {
+            securityDeposit: new Prisma.Decimal(dto.securityDeposit),
+          }),
+          ...(dto.startDate !== undefined && {
+            startDate: new Date(dto.startDate),
+          }),
+          ...(dto.endDate !== undefined && {
+            endDate: dto.endDate ? new Date(dto.endDate) : null,
+          }),
+          ...(dto.status !== undefined && { status: dto.status }),
+          ...(dto.notes !== undefined && { notes: dto.notes }),
+          ...(dto.agreementDocumentId !== undefined && {
+            agreementDocumentId: dto.agreementDocumentId,
+          }),
+        },
+        include: {
+          tenant: {
+            select: { id: true, name: true, phone: true, email: true },
+          },
+          unit: {
+            select: {
+              id: true,
+              unitNumber: true,
+              property: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+
+      // Update unit statuses if unitId or status changed
+      if (dto.unitId !== undefined || dto.status !== undefined) {
+        if (targetStatus === AgreementStatus.ACTIVE) {
+          await tx.unit.update({
+            where: { id: newUnitId },
+            data: { status: UnitStatus.OCCUPIED },
+          });
+        }
+        if (oldUnitId !== newUnitId || targetStatus !== AgreementStatus.ACTIVE) {
+          const oldUnitActiveOthers = await tx.rentalAgreement.findFirst({
+            where: {
+              unitId: oldUnitId,
+              id: { not: id },
+              status: AgreementStatus.ACTIVE,
+              deletedAt: null,
+            },
+          });
+          if (!oldUnitActiveOthers) {
+            await tx.unit.update({
+              where: { id: oldUnitId },
+              data: { status: UnitStatus.VACANT },
+            });
+          }
+        }
+      }
+
+      return res;
     });
 
     return {

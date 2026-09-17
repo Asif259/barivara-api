@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsEnum,
   IsDateString,
   IsInt,
   IsNumber,
@@ -10,8 +11,19 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { AgreementStatus } from '@prisma/client';
 
 export class UpdateRentalAgreementDto {
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb' })
+  @IsOptional()
+  @IsUUID('4', { message: 'ভাড়াটিয়ার আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
+  tenantId?: string;
+
+  @ApiPropertyOptional({ example: 'a7043104-5dce-4969-a8bc-c33ff894bbbb' })
+  @IsOptional()
+  @IsUUID('4', { message: 'ইউনিটের আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
+  unitId?: string;
+
   @ApiPropertyOptional({ example: 22000 })
   @IsOptional()
   @Type(() => Number)
@@ -55,10 +67,20 @@ export class UpdateRentalAgreementDto {
   @Min(0, { message: 'সিকিউরিটি ডিপোজিট ০ বা তার বেশি হতে হবে' })
   securityDeposit?: number;
 
+  @ApiPropertyOptional({ example: '2026-09-01T00:00:00.000Z' })
+  @IsOptional()
+  @IsDateString({}, { message: 'সঠিক শুরুর তারিখ দিন' })
+  startDate?: string;
+
   @ApiPropertyOptional({ example: '2027-08-31T00:00:00.000Z' })
   @IsOptional()
   @IsDateString({}, { message: 'সঠিক সমাপ্তির তারিখ দিন' })
   endDate?: string;
+
+  @ApiPropertyOptional({ enum: AgreementStatus, example: AgreementStatus.ACTIVE })
+  @IsOptional()
+  @IsEnum(AgreementStatus, { message: 'সঠিক স্ট্যাটাস নির্বাচন করুন' })
+  status?: AgreementStatus;
 
   @ApiPropertyOptional({ example: 'শর্তাবলী পরিমার্জন করা হয়েছে' })
   @IsOptional()
@@ -70,3 +92,4 @@ export class UpdateRentalAgreementDto {
   @IsUUID('4', { message: 'চুক্তির দলিলের ফাইল আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   agreementDocumentId?: string;
 }
+
