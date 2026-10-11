@@ -350,7 +350,21 @@ include: {
                   select: {
                     id: true,
                     unitNumber: true,
-                    property: { select: { id: true, name: true } },
+                    property: {
+                      select: {
+                        id: true,
+                        name: true,
+                        owner: {
+                          select: {
+                            id: true,
+                            name: true,
+                            phone: true,
+                            email: true,
+                            signatureFileId: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -473,6 +487,15 @@ include: {
                     city: true,
                     district: true,
                     ownerId: true,
+                    owner: {
+                      select: {
+                        id: true,
+                        name: true,
+                        phone: true,
+                        email: true,
+                        signatureFileId: true,
+                      },
+                    },
                   },
                 },
               },
@@ -531,6 +554,15 @@ include: {
                       city: true,
                       district: true,
                       ownerId: true,
+                      owner: {
+                        select: {
+                          id: true,
+                          name: true,
+                          phone: true,
+                          email: true,
+                          signatureFileId: true,
+                        },
+                      },
                     },
                   },
                 },
