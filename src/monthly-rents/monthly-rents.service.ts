@@ -59,118 +59,95 @@ export class MonthlyRentsService {
         extraCharge: true,
         dueDay: true,
         startDate: true,
+        endDate: true,
       },
     });
 
-    // 1. Target month date boundary (e.g. Aug 31, 2026 23:59:59)
-    const targetMonthRange = DateUtil.getMonthDateRange(dto.year, dto.month);
+    // 1. Map each active agreement to all eligible (year, month) periods up to selected (dto.year, dto.month)
+    const agreementPeriodsMap = new Map<string, Array<{ year: number; month: number }>>();
+    const allAgreementIds: string[] = [];
 
-    // Filter active agreements: Only include agreements whose startDate is on or before the end of target month
-    const targetAgreements = activeAgreements.filter(
-      (agreement) => new Date(agreement.startDate) <= targetMonthRange.endDate,
-    );
+    for (const agreement of activeAgreements) {
+      const periods = DateUtil.getEligibleRentPeriods(
+        agreement.startDate,
+        agreement.endDate,
+        dto.year,
+        dto.month,
+      );
+      if (periods.length > 0) {
+        agreementPeriodsMap.set(agreement.id, periods);
+        allAgreementIds.push(agreement.id);
+      }
+    }
 
-    const targetAgreementIds = targetAgreements.map((agreement) => agreement.id);
-    const existingTargetRents = targetAgreementIds.length === 0
+    // 2. Fetch all existing rent invoices for these agreements up to target (dto.year, dto.month)
+    const existingRents = allAgreementIds.length === 0
       ? []
       : await this.prisma.monthlyRent.findMany({
           where: {
-            agreementId: { in: targetAgreementIds },
-            year: dto.year,
-            month: dto.month,
+            agreementId: { in: allAgreementIds },
+            OR: [
+              { year: { lt: dto.year } },
+              { year: dto.year, month: { lte: dto.month } },
+            ],
           },
-          select: { agreementId: true },
-        });
-    const existingTargetIds = new Set(existingTargetRents.map((rent) => rent.agreementId));
-
-    const rentsToCreate: Prisma.MonthlyRentCreateManyInput[] = targetAgreements
-      .filter((agreement) => !existingTargetIds.has(agreement.id))
-      .map((agreement) => {
-        const rent = DecimalUtil.toDecimal(agreement.monthlyRent);
-        const serviceFee = DecimalUtil.toDecimal(agreement.serviceFee);
-        const parkingFee = DecimalUtil.toDecimal(agreement.parkingFee);
-        const extraCharge = DecimalUtil.toDecimal(agreement.extraCharge);
-        const totalAmount = DecimalUtil.calculateRentTotal({
-          rent,
-          serviceFee,
-          parkingFee,
-          extraCharge,
-        });
-        const dueDate = DateUtil.calculateDueDate(dto.year, dto.month, agreement.dueDay || 5);
-
-        return {
-          agreementId: agreement.id,
-          year: dto.year,
-          month: dto.month,
-          rent: new Prisma.Decimal(rent.toString()),
-          serviceFee: new Prisma.Decimal(serviceFee.toString()),
-          parkingFee: new Prisma.Decimal(parkingFee.toString()),
-          extraCharge: new Prisma.Decimal(extraCharge.toString()),
-          lateFee: new Prisma.Decimal(0),
-          discount: new Prisma.Decimal(0),
-          totalAmount: new Prisma.Decimal(totalAmount.toString()),
-          paidAmount: new Prisma.Decimal(0),
-          remainingAmount: new Prisma.Decimal(totalAmount.toString()),
-          dueDate,
-          status: RentCalculationUtil.calculateStatus(totalAmount, new Prisma.Decimal(0), dueDate),
-        };
-      });
-
-    // 2. If includeCurrentMonthNewTenants option is enabled, also generate current month rent for tenants starting this month
-    if (dto.includeCurrentMonthNewTenants) {
-      const currentDhaka = DateUtil.nowInDhaka();
-      const currentYear = currentDhaka.getFullYear();
-      const currentMonth = currentDhaka.getMonth() + 1;
-      const currentMonthRange = DateUtil.getMonthDateRange(currentYear, currentMonth);
-
-      const newTenantsThisMonth = activeAgreements.filter((agreement) => {
-        const start = new Date(agreement.startDate);
-        return start >= currentMonthRange.startDate && start <= currentMonthRange.endDate;
-      });
-
-      if (newTenantsThisMonth.length > 0) {
-        const newTenantIds = newTenantsThisMonth.map((a) => a.id);
-        const existingCurrentRents = await this.prisma.monthlyRent.findMany({
-          where: {
-            agreementId: { in: newTenantIds },
-            year: currentYear,
-            month: currentMonth,
+          select: {
+            agreementId: true,
+            year: true,
+            month: true,
           },
-          select: { agreementId: true },
         });
-        const existingCurrentIds = new Set(existingCurrentRents.map((r) => r.agreementId));
 
-        for (const agreement of newTenantsThisMonth) {
-          if (!existingCurrentIds.has(agreement.id)) {
-            const rent = DecimalUtil.toDecimal(agreement.monthlyRent);
-            const serviceFee = DecimalUtil.toDecimal(agreement.serviceFee);
-            const parkingFee = DecimalUtil.toDecimal(agreement.parkingFee);
-            const extraCharge = DecimalUtil.toDecimal(agreement.extraCharge);
-            const totalAmount = DecimalUtil.calculateRentTotal({
-              rent,
-              serviceFee,
-              parkingFee,
-              extraCharge,
-            });
-            const dueDate = DateUtil.calculateDueDate(currentYear, currentMonth, agreement.dueDay || 5);
+    const existingKeySet = new Set(
+      existingRents.map((r) => `${r.agreementId}_${r.year}_${r.month}`),
+    );
 
-            rentsToCreate.push({
-              agreementId: agreement.id,
-              year: currentYear,
-              month: currentMonth,
-              rent: new Prisma.Decimal(rent.toString()),
-              serviceFee: new Prisma.Decimal(serviceFee.toString()),
-              parkingFee: new Prisma.Decimal(parkingFee.toString()),
-              extraCharge: new Prisma.Decimal(extraCharge.toString()),
-              lateFee: new Prisma.Decimal(0),
-              discount: new Prisma.Decimal(0),
-              totalAmount: new Prisma.Decimal(totalAmount.toString()),
-              paidAmount: new Prisma.Decimal(0),
-              remainingAmount: new Prisma.Decimal(totalAmount.toString()),
+    // 3. Assemble missing rent records to create
+    const rentsToCreate: Prisma.MonthlyRentCreateManyInput[] = [];
+
+    for (const agreement of activeAgreements) {
+      const periods = agreementPeriodsMap.get(agreement.id) || [];
+      for (const period of periods) {
+        const key = `${agreement.id}_${period.year}_${period.month}`;
+        if (!existingKeySet.has(key)) {
+          const rent = DecimalUtil.toDecimal(agreement.monthlyRent);
+          const serviceFee = DecimalUtil.toDecimal(agreement.serviceFee);
+          const parkingFee = DecimalUtil.toDecimal(agreement.parkingFee);
+          const extraCharge = DecimalUtil.toDecimal(agreement.extraCharge);
+          const totalAmount = DecimalUtil.calculateRentTotal({
+            rent,
+            serviceFee,
+            parkingFee,
+            extraCharge,
+          });
+          const dueDate = DateUtil.calculateDueDate(
+            period.year,
+            period.month,
+            agreement.dueDay || 5,
+          );
+
+          rentsToCreate.push({
+            agreementId: agreement.id,
+            year: period.year,
+            month: period.month,
+            rent: new Prisma.Decimal(rent.toString()),
+            serviceFee: new Prisma.Decimal(serviceFee.toString()),
+            parkingFee: new Prisma.Decimal(parkingFee.toString()),
+            extraCharge: new Prisma.Decimal(extraCharge.toString()),
+            lateFee: new Prisma.Decimal(0),
+            discount: new Prisma.Decimal(0),
+            totalAmount: new Prisma.Decimal(totalAmount.toString()),
+            paidAmount: new Prisma.Decimal(0),
+            remainingAmount: new Prisma.Decimal(totalAmount.toString()),
+            dueDate,
+            status: RentCalculationUtil.calculateStatus(
+              totalAmount,
+              new Prisma.Decimal(0),
               dueDate,
-              status: RentCalculationUtil.calculateStatus(totalAmount, new Prisma.Decimal(0), dueDate),
-            });
-          }
+            ),
+          });
+
+          existingKeySet.add(key);
         }
       }
     }
@@ -183,7 +160,7 @@ export class MonthlyRentsService {
             skipDuplicates: true,
           });
       const generatedCount = created.count;
-      const skippedCount = activeAgreements.length - generatedCount;
+      const skippedCount = rentsToCreate.length - generatedCount;
 
       await tx.auditLog.create({
         data: {
@@ -196,7 +173,8 @@ export class MonthlyRentsService {
             propertyId: dto.propertyId || 'ALL',
             includeCurrentMonthNewTenants: !!dto.includeCurrentMonthNewTenants,
             generatedCount,
-            skippedCount,
+            rentsToCreateCount: rentsToCreate.length,
+            totalAgreementsProcessed: activeAgreements.length,
           },
         },
       });
@@ -205,7 +183,7 @@ export class MonthlyRentsService {
     });
 
     return {
-      message: `${dto.month}/${dto.year} মাসের ভাড়ার হিসাব সফলভাবে তৈরি হয়েছে`,
+      message: `${dto.month}/${dto.year} পর্যন্ত বকেয়া ও চলতি সকল ভাড়ার হিসাব সফলভাবে তৈরি হয়েছে`,
       data: {
         year: dto.year,
         month: dto.month,

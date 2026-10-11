@@ -81,5 +81,58 @@ export class DateUtil {
     today.setHours(0, 0, 0, 0);
     return today;
   }
+
+  /**
+   * Calculates all eligible (year, month) periods from an agreement's startDate
+   * up to the target (targetYear, targetMonth).
+   * An agreement is eligible for period (y, m) if:
+   * 1. startDate <= end of month (y, m)
+   * 2. endDate is null OR start of month (y, m) <= endDate
+   * 3. (y, m) <= (targetYear, targetMonth)
+   */
+  static getEligibleRentPeriods(
+    startDate: Date | string,
+    endDate: Date | string | null | undefined,
+    targetYear: number,
+    targetMonth: number,
+  ): Array<{ year: number; month: number }> {
+    const periods: Array<{ year: number; month: number }> = [];
+    const start = new Date(startDate);
+    if (isNaN(start.getTime())) return periods;
+
+    let curYear = start.getFullYear();
+    let curMonth = start.getMonth() + 1;
+
+    // Safety floor
+    if (curYear < 2020) {
+      curYear = 2020;
+      curMonth = 1;
+    }
+
+    while (
+      curYear < targetYear ||
+      (curYear === targetYear && curMonth <= targetMonth)
+    ) {
+      const monthStart = new Date(curYear, curMonth - 1, 1, 0, 0, 0, 0);
+      const monthEnd = new Date(curYear, curMonth, 0, 23, 59, 59, 999);
+
+      const isAfterStart = start <= monthEnd;
+      const isBeforeEnd = !endDate || new Date(endDate) >= monthStart;
+
+      if (isAfterStart && isBeforeEnd) {
+        periods.push({ year: curYear, month: curMonth });
+      }
+
+      if (curMonth === 12) {
+        curYear += 1;
+        curMonth = 1;
+      } else {
+        curMonth += 1;
+      }
+    }
+
+    return periods;
+  }
 }
+
 

@@ -138,6 +138,39 @@ describe('PaymentsService', () => {
       const updateCall = mockPrismaInner.monthlyRent.update.mock.calls[0][0];
       expect(updateCall.data.status).toBe(RentStatus.PARTIAL);
       expect(updateCall.data.paidDate).toBeNull();
+      // Partial payment preserves remaining balance: 25500 - 10000 = 15500
+      expect(updateCall.data.remainingAmount.toString()).toBe('15500');
+      expect(updateCall.data.paidAmount.toString()).toBe('10000');
+    });
+
+    it('applies payment strictly to target September invoice and does not affect other invoices', async () => {
+      const septRent = makeMockRent({ id: 'sept-rent-uuid', totalAmount: new Prisma.Decimal(20000), remainingAmount: new Prisma.Decimal(20000) });
+      mockPrisma.monthlyRent.findUnique.mockResolvedValue(septRent);
+      mockPrismaInner.monthlyRent.findUnique.mockResolvedValue(septRent);
+
+      mockPrismaInner.payment.create.mockResolvedValue({ id: PAYMENT_ID, amount: new Prisma.Decimal(12000) });
+      mockPrismaInner.monthlyRent.update.mockResolvedValue({
+        ...septRent,
+        paidAmount: new Prisma.Decimal(12000),
+        remainingAmount: new Prisma.Decimal(8000),
+        status: RentStatus.PARTIAL,
+      });
+
+      await service.create(OWNER_ID, {
+        monthlyRentId: 'sept-rent-uuid',
+        amount: 12000,
+        paymentMethod: 'CASH',
+      });
+
+      expect(mockPrismaInner.monthlyRent.update).toHaveBeenCalledTimes(1);
+      expect(mockPrismaInner.monthlyRent.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'sept-rent-uuid' },
+          data: expect.objectContaining({
+            remainingAmount: expect.any(Prisma.Decimal),
+          }),
+        }),
+      );
     });
 
     it('FULL payment: remaining = 0 → status becomes PAID, paidDate is set', async () => {
