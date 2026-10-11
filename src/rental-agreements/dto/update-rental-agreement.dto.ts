@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEnum,
   IsDateString,
   IsInt,
@@ -91,5 +92,10 @@ export class UpdateRentalAgreementDto {
   @IsOptional()
   @IsUUID('4', { message: 'চুক্তির দলিলের ফাইল আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   agreementDocumentId?: string;
+
+  @ApiPropertyOptional({ example: false, description: 'চলতি মাসের বিল তৈরির ফ্ল্যাগ' })
+  @IsOptional()
+  @IsBoolean()
+  generateCurrentMonthRent?: boolean;
 }
 
