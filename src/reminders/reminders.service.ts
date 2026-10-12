@@ -73,6 +73,26 @@ export class RemindersService {
           message: 'এই সময়ের জন্য ইতিমধ্যে একটি রিমাইন্ডার নির্ধারিত আছে।',
         });
       }
+    } else {
+      // If no monthlyRentId, verify tenant has agreements under user's properties or was created by user
+      const tenantAccess = await this.prisma.tenant.findFirst({
+        where: {
+          id: dto.tenantId,
+          deletedAt: null,
+          OR: [
+            { agreements: { some: { unit: { property: { ownerId: userId } } } } },
+            { createdById: userId, agreements: { none: {} } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (!tenantAccess) {
+        throw new ForbiddenException({
+          errorCode: ErrorCode.TENANT_ACCESS_DENIED,
+          message: 'এই ভাড়াটিয়ার জন্য রিমাইন্ডার তৈরি করার অনুমতি নেই।',
+        });
+      }
     }
 
     const reminder = await this.prisma.reminder.create({
@@ -109,6 +129,7 @@ export class RemindersService {
             },
           },
           {
+            createdById: userId,
             agreements: { none: {} },
           },
         ],
@@ -179,14 +200,28 @@ export class RemindersService {
     const reminder = await this.prisma.reminder.findUnique({
       where: { id },
       include: {
-        tenant: true,
+        tenant: {
+          include: {
+            agreements: {
+              where: {
+                unit: {
+                  property: { ownerId: userId },
+                },
+                deletedAt: null,
+              },
+              select: { id: true },
+            },
+          },
+        },
         monthlyRent: {
           include: {
             agreement: {
               include: {
                 unit: {
                   include: {
-                    property: true,
+                    property: {
+                      select: { ownerId: true },
+                    },
                   },
                 },
               },
@@ -200,6 +235,17 @@ export class RemindersService {
       throw new NotFoundException({
         errorCode: ErrorCode.REMINDER_NOT_FOUND,
         message: 'রিমাইন্ডার পাওয়া যায়নি।',
+      });
+    }
+
+    const isRentOwner = reminder.monthlyRent?.agreement?.unit?.property?.ownerId === userId;
+    const isTenantAgreementOwner = (reminder.tenant?.agreements?.length ?? 0) > 0;
+    const isTenantCreator = (reminder.tenant as any)?.createdById === userId;
+
+    if (!isRentOwner && !isTenantAgreementOwner && !isTenantCreator) {
+      throw new ForbiddenException({
+        errorCode: ErrorCode.AUTH_FORBIDDEN,
+        message: 'এই রিমাইন্ডারে আপনার অ্যাক্সেস নেই।',
       });
     }
 

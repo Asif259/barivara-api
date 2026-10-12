@@ -444,13 +444,8 @@ export class AuthService {
     const resetToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = Date.now() + 10 * 60 * 1000;
 
-    // Store server-side authorization mapped to resetToken AND normalizedIdentifier
+    // Store server-side authorization mapped strictly to the cryptographically secure resetToken
     this.resetSessions.set(resetToken, {
-      userId: record.userId,
-      identifier: normalizedIdentifier,
-      expiresAt,
-    });
-    this.resetSessions.set(`id:${normalizedIdentifier}`, {
       userId: record.userId,
       identifier: normalizedIdentifier,
       expiresAt,
@@ -492,17 +487,15 @@ export class AuthService {
     const isEmail = rawIdentifier.includes('@');
     const normalizedIdentifier = isEmail ? rawIdentifier.toLowerCase() : rawIdentifier;
 
-    // Authorize reset session via resetToken or verified identifier session
-    let session: ResetSessionRecord | undefined;
-    if (dto.resetToken && this.resetSessions.has(dto.resetToken)) {
-      session = this.resetSessions.get(dto.resetToken);
-    } else if (this.resetSessions.has(`id:${normalizedIdentifier}`)) {
-      session = this.resetSessions.get(`id:${normalizedIdentifier}`);
-    }
+    // Authorize reset session strictly via cryptographically secure resetToken
+    const session = dto.resetToken ? this.resetSessions.get(dto.resetToken) : undefined;
 
-    if (!session || Date.now() > session.expiresAt) {
+    if (
+      !session ||
+      Date.now() > session.expiresAt ||
+      session.identifier !== normalizedIdentifier
+    ) {
       if (dto.resetToken) this.resetSessions.delete(dto.resetToken);
-      this.resetSessions.delete(`id:${normalizedIdentifier}`);
       throw new UnauthorizedException({
         errorCode: ErrorCode.RESET_TOKEN_INVALID,
         message: 'পাসওয়ার্ড রিসেট সেশনটি মেয়াদোত্তীর্ণ বা অবৈধ। অনুগ্রহ করে পুনরায় ওটিপি যাচাই করুন।',
@@ -539,8 +532,7 @@ export class AuthService {
     });
 
     // Invalidate reset session
-    if (dto.resetToken) this.resetSessions.delete(dto.resetToken);
-    this.resetSessions.delete(`id:${normalizedIdentifier}`);
+    this.resetSessions.delete(dto.resetToken);
 
     await this.prisma.auditLog.create({
       data: {

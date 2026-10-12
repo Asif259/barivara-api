@@ -27,6 +27,7 @@ export class TenantsService {
         emergencyContactPhone: dto.emergencyContactPhone || null,
         occupation: dto.occupation || null,
         notes: dto.notes || null,
+        createdById: userId,
       },
     });
 
@@ -38,7 +39,7 @@ export class TenantsService {
 
   async findAll(userId: string, query: TenantFilterDto) {
     // A tenant is visible to a user if they have agreements under properties owned by userId,
-    // or if they were newly created and have no agreements yet.
+    // or if they were created by this user and have no agreements yet.
     const where: any = {
       deletedAt: null,
       OR: [
@@ -53,8 +54,9 @@ export class TenantsService {
             },
           },
         },
-        // Also allow listing unassigned tenants
+        // Only allow listing unassigned tenants created by this user
         {
+          createdById: userId,
           agreements: {
             none: {},
           },
@@ -208,12 +210,21 @@ export class TenantsService {
       });
     }
 
-    // Check that at least one agreement belongs to user, or tenant has no agreements
+    // Check that at least one agreement belongs to user, or unassigned tenant was created by user
     const userAgreements = tenant.agreements.filter(
       (a) => a.unit?.property?.ownerId === userId,
     );
 
+    const isCreator = tenant.createdById === userId;
+
     if (tenant.agreements.length > 0 && userAgreements.length === 0) {
+      throw new ForbiddenException({
+        errorCode: ErrorCode.TENANT_ACCESS_DENIED,
+        message: 'এই ভাড়াটিয়ার তথ্যে আপনার অ্যাক্সেস নেই।',
+      });
+    }
+
+    if (tenant.agreements.length === 0 && !isCreator) {
       throw new ForbiddenException({
         errorCode: ErrorCode.TENANT_ACCESS_DENIED,
         message: 'এই ভাড়াটিয়ার তথ্যে আপনার অ্যাক্সেস নেই।',

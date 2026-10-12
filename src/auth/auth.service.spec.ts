@@ -422,6 +422,17 @@ describe('AuthService', () => {
         service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '000000' }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('resetPassword rejects when resetToken is missing, expired or mismatched', async () => {
+      await expect(
+        service.resetPassword({
+          identifier: 'landlord@example.com',
+          resetToken: 'invalid-token',
+          newPassword: 'NewPassword123!',
+          confirmPassword: 'NewPassword123!',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   // =========================================================================

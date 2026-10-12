@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DateUtil } from '../common/utils/date.util';
 import { DecimalUtil } from '../common/utils/decimal.util';
@@ -168,6 +168,13 @@ export class ReportsService {
       throw new NotFoundException({
         errorCode: ErrorCode.TENANT_NOT_FOUND,
         message: 'ভাড়াটিয়া পাওয়া যায়নি।',
+      });
+    }
+
+    if (tenant.agreements.length === 0) {
+      throw new ForbiddenException({
+        errorCode: ErrorCode.TENANT_ACCESS_DENIED,
+        message: 'এই ভাড়াটিয়ার তথ্যে আপনার অ্যাক্সেস নেই।',
       });
     }
 

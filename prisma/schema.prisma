@@ -121,6 +121,7 @@ model User {
 
   properties Property[]
   auditLogs  AuditLog[]
+  createdTenants Tenant[]
 
   @@map("users")
 }
@@ -186,14 +187,17 @@ model Tenant {
   occupation            String?
   notes                 String?
   isActive              Boolean   @default(true)
+  createdById           String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   deletedAt             DateTime?
 
+  createdBy  User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
   agreements RentalAgreement[]
   reminders  Reminder[]
 
   @@index([phone])
+  @@index([createdById])
   @@map("tenants")
 }
 

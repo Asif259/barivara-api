@@ -49,6 +49,7 @@ const mockTenant = (overrides: Partial<any> = {}) => ({
   occupation: null,
   notes: null,
   isActive: true,
+  createdById: OWNER_ID,
   createdAt: new Date(),
   agreements: [makeAgreement()],
   ...overrides,
@@ -143,15 +144,23 @@ describe('TenantsService', () => {
       });
     });
 
-    it('allows access when tenant has no agreements (newly created)', async () => {
-      // A tenant with zero agreements is accessible by any authenticated user
-      const tenant = mockTenant({ agreements: [] });
+    it('allows access when tenant has no agreements if created by user', async () => {
+      const tenant = mockTenant({ agreements: [], createdById: OWNER_ID });
       mockPrisma.tenant.findFirst.mockResolvedValue(tenant);
       mockPrisma.monthlyRent.aggregate.mockResolvedValueOnce({ _sum: { remainingAmount: new Prisma.Decimal(0) } });
 
       const result = await service.findOne(OWNER_ID, TENANT_ID);
       expect(result.data.id).toBe(TENANT_ID);
       expect(result.data.outstandingAmount).toBe(0);
+    });
+
+    it('IDOR guard: throws ForbiddenException when unassigned tenant was created by another owner', async () => {
+      const tenant = mockTenant({ agreements: [], createdById: OTHER_OWNER_ID });
+      mockPrisma.tenant.findFirst.mockResolvedValue(tenant);
+
+      await expect(service.findOne(OWNER_ID, TENANT_ID)).rejects.toMatchObject({
+        response: { errorCode: ErrorCode.TENANT_ACCESS_DENIED },
+      });
     });
 
     it('includes payment history sorted by date descending', async () => {

@@ -455,14 +455,14 @@ export class FilesService {
     switch (entityType.toLowerCase()) {
       case 'tenant': {
         // A tenant is valid if they have agreements under the user's properties,
-        // or if they have no agreements (unassigned).
+        // or if they were created by this user and have no agreements yet.
         const tenant = await this.prisma.tenant.findFirst({
           where: {
             id: entityId,
             deletedAt: null,
             OR: [
               { agreements: { some: { unit: { property: { ownerId: userId } } } } },
-              { agreements: { none: {} } },
+              { createdById: userId, agreements: { none: {} } },
             ],
           },
           select: { id: true },

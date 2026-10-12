@@ -10,13 +10,13 @@ export class ResetPasswordDto {
   @IsNotEmpty({ message: 'ইমেইল অথবা মোবাইল নম্বর প্রদান করুন' })
   identifier!: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 'reset_token_xyz',
     description: 'Temporary reset authorization token returned from OTP verification',
   })
-  @IsOptional()
-  @IsString()
-  resetToken?: string;
+  @IsString({ message: 'রিসেট টোকেন একটি স্ট্রিং হতে হবে' })
+  @IsNotEmpty({ message: 'রিসেট টোকেন প্রদান করুন' })
+  resetToken!: string;
 
   @ApiProperty({ example: 'NewSecurePassword123' })
   @IsString()
