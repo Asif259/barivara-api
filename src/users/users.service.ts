@@ -7,6 +7,7 @@ import {
 import { FileCategory, FileStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ErrorCode } from '../common/constants/error-codes';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
@@ -81,6 +82,37 @@ export class UsersService {
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { signatureFileId: fileId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        isActive: true,
+        signatureFileId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Update the user's profile information (name).
+   */
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const trimmedName = dto.name.trim();
+    if (!trimmedName) {
+      throw new BadRequestException({
+        errorCode: ErrorCode.VALIDATION_ERROR,
+        message: 'নাম খালি রাখা যাবে না।',
+      });
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: { name: trimmedName },
       select: {
         id: true,
         name: true,

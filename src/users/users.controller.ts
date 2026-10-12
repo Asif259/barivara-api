@@ -24,7 +24,7 @@ import {
   StandardErrorResponseDto,
 } from '../common/dto/api-response.dto';
 import { UsersService } from './users.service';
-import { UpdateSignatureDto } from './dto/update-signature.dto';
+import { UpdateSignatureDto, UpdateProfileDto } from './dto';
 import { ErrorCode } from '../common/constants/error-codes';
 
 @ApiTags('Users')
@@ -33,6 +33,26 @@ import { ErrorCode } from '../common/constants/error-codes';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Patch('profile')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'ব্যবহারকারীর প্রোফাইল (নাম) পরিবর্তন করুন',
+    description: 'Updates the authenticated user’s profile details, such as name.',
+  })
+  @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
+  @ApiResponse({ status: 400, type: StandardErrorResponseDto })
+  async updateProfile(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    const updated = await this.usersService.updateProfile(user.id, dto);
+
+    return {
+      message: 'প্রোফাইল সফলভাবে আপডেট করা হয়েছে',
+      data: updated,
+    };
+  }
 
   @Patch('profile/signature')
   @HttpCode(HttpStatus.OK)
