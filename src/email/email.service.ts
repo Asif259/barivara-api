@@ -18,8 +18,7 @@ export class EmailService {
 
   constructor(private readonly configService: ConfigService) {
     const resendApiKey =
-      this.configService.get<string>('RESEND_API_KEY') ||
-      process.env.RESEND_API_KEY;
+      this.configService.get<string>('RESEND_API_KEY');
 
     if (resendApiKey) {
       try {
@@ -38,7 +37,7 @@ export class EmailService {
   async sendPasswordResetOtp(options: SendOtpEmailOptions): Promise<boolean> {
     const { to, name, otp, expiresInMinutes = 10 } = options;
     const fromAddress =
-      process.env.RESEND_FROM ||
+      this.configService.get<string>('RESEND_FROM') ||
       'BariVara <onboarding@resend.dev>';
 
     const subject = 'বাড়িভাড়া পাসওয়ার্ড রিসেট ওটিপি কোড / BariVara Password Reset OTP';

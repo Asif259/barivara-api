@@ -23,25 +23,13 @@ import { ResetPasswordDirectDto } from './dto/reset-password-direct.dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { AuditAction } from '@prisma/client';
 
-interface PendingOtpRecord {
-  otp: string;
-  expiresAt: number;
-  attempts: number;
-  userId: string;
-  email: string;
-}
-
-interface ResetSessionRecord {
-  userId: string;
-  identifier: string;
-  expiresAt: number;
-}
+const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_MAX_ATTEMPTS = 3;
+const RESET_TOKEN_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly pendingOtps = new Map<string, PendingOtpRecord>();
-  private readonly resetSessions = new Map<string, ResetSessionRecord>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -93,6 +81,7 @@ export class AuthService {
         phone: dto.phone || null,
         passwordHash,
         role: dto.role || 'OWNER',
+        tokenVersion: 0,
       },
       select: {
         id: true,
@@ -106,7 +95,7 @@ export class AuthService {
       },
     });
 
-    const tokens = await this.generateTokens(user.id, user.role, user.email, user.phone);
+    const tokens = await this.generateTokens(user.id, user.role, 0);
 
     // Audit log — no PII (email/phone) in metadata to minimise data in audit trail
     await this.prisma.auditLog.create({
@@ -172,7 +161,7 @@ export class AuthService {
       });
     }
 
-    const tokens = await this.generateTokens(user.id, user.role, user.email, user.phone);
+    const tokens = await this.generateTokens(user.id, user.role, user.tokenVersion);
 
     // Audit log
     await this.prisma.auditLog.create({
@@ -221,7 +210,15 @@ export class AuthService {
         });
       }
 
-      const tokens = await this.generateTokens(user.id, user.role, user.email, user.phone);
+      // Check tokenVersion — reject if the token was issued before a version bump
+      if (payload.tokenVersion !== user.tokenVersion) {
+        throw new UnauthorizedException({
+          errorCode: ErrorCode.AUTH_UNAUTHORIZED,
+          message: 'টোকেন অবৈধ বা মেয়াদোত্তীর্ণ।',
+        });
+      }
+
+      const tokens = await this.generateTokens(user.id, user.role, user.tokenVersion);
 
       return {
         message: 'টোকেন সফলভাবে নবায়ন করা হয়েছে',
@@ -237,6 +234,12 @@ export class AuthService {
 
   async logout(userId: string, ipAddress?: string, userAgent?: string) {
     if (userId) {
+      // Invalidate active tokens by incrementing tokenVersion
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { tokenVersion: { increment: 1 } },
+      });
+
       await this.prisma.auditLog.create({
         data: {
           userId,
@@ -319,10 +322,12 @@ export class AuthService {
 
     const newPasswordHash = await argon2.hash(dto.newPassword);
 
+    // Increment tokenVersion to invalidate all existing sessions
     await this.prisma.user.update({
       where: { id: userId },
       data: {
         passwordHash: newPasswordHash,
+        tokenVersion: { increment: 1 },
       },
     });
 
@@ -368,14 +373,18 @@ export class AuthService {
 
     // Generate secure 6-digit numeric OTP
     const otp = crypto.randomInt(100000, 1000000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const otpHash = this.hashOtp(otp);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
 
-    this.pendingOtps.set(normalizedIdentifier, {
-      otp,
-      expiresAt,
-      attempts: 0,
-      userId: user.id,
-      email: user.email,
+    // Store OTP hash in the database (survives restarts, works across instances)
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        identifier: normalizedIdentifier,
+        otpHash,
+        expiresAt,
+        attempts: 0,
+      },
     });
 
     // Send OTP email
@@ -387,7 +396,10 @@ export class AuthService {
     });
 
     if (!sent) {
-      this.pendingOtps.delete(normalizedIdentifier);
+      // Clean up the OTP record on send failure
+      await this.prisma.passwordResetToken.deleteMany({
+        where: { identifier: normalizedIdentifier, otpHash, completedAt: null },
+      });
       throw new InternalServerErrorException({
         errorCode: ErrorCode.INTERNAL_ERROR,
         message: 'ওটিপি ইমেইল পাঠাতে ব্যর্থ হয়েছে। অনুগ্রহ করে আপনার ইমেইল সেটিং বা সংযোগ যাচাই করুন।',
@@ -402,7 +414,7 @@ export class AuthService {
         entityId: user.id,
         ipAddress,
         userAgent,
-        metadata: { action: 'FORGOT_PASSWORD_REQUEST', email: user.email },
+        metadata: { action: 'FORGOT_PASSWORD_REQUEST' },
       },
     });
 
@@ -414,45 +426,61 @@ export class AuthService {
     const isEmail = rawIdentifier.includes('@');
     const normalizedIdentifier = isEmail ? rawIdentifier.toLowerCase() : rawIdentifier;
 
-    const record = this.pendingOtps.get(normalizedIdentifier);
+    // Find the latest uncompleted OTP record for this identifier
+    const record = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        identifier: normalizedIdentifier,
+        completedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    if (!record || Date.now() > record.expiresAt) {
-      this.pendingOtps.delete(normalizedIdentifier);
+    if (!record) {
       throw new BadRequestException({
         errorCode: ErrorCode.OTP_EXPIRED,
         message: 'ওটিপির মেয়াদ শেষ হয়ে গেছে বা অনুরোধ পাওয়া যায়নি। নতুন ওটিপি অনুরোধ করুন।',
       });
     }
 
-    if (record.attempts >= 3) {
-      this.pendingOtps.delete(normalizedIdentifier);
+    if (record.attempts >= OTP_MAX_ATTEMPTS) {
+      await this.prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { completedAt: new Date() },
+      });
       throw new BadRequestException({
         errorCode: ErrorCode.OTP_LIMIT_EXCEEDED,
         message: 'অতিরিক্ত ভুল চেষ্টার কারণে ওটিপি বাতিল হয়েছে। পুনরায় ওটিপি পাঠান।',
       });
     }
 
-    if (record.otp !== dto.otp.trim()) {
-      record.attempts += 1;
+    // Hash the provided OTP and compare
+    const providedOtpHash = this.hashOtp(dto.otp.trim());
+    if (record.otpHash !== providedOtpHash) {
+      await this.prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { attempts: { increment: 1 } },
+      });
       throw new BadRequestException({
         errorCode: ErrorCode.INVALID_OTP,
-        message: `ভুল ওটিপি কোড। বাকি সুযোগ: ${3 - record.attempts} বার।`,
+        message: `ভুল ওটিপি কোড। বাকি সুযোগ: ${OTP_MAX_ATTEMPTS - record.attempts - 1} বার।`,
       });
     }
 
     // OTP matched successfully! Issue a 10-minute temporary reset authorization token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = Date.now() + 10 * 60 * 1000;
+    const resetTokenHash = this.hashOtp(resetToken);
+    const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
 
-    // Store server-side authorization mapped strictly to the cryptographically secure resetToken
-    this.resetSessions.set(resetToken, {
-      userId: record.userId,
-      identifier: normalizedIdentifier,
-      expiresAt,
+    // Store reset token hash in the record
+    await this.prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: {
+        resetTokenHash,
+        resetTokenExpiresAt,
+        otpHash: '', // Clear OTP hash — no longer needed
+      },
     });
-
-    // Clear the consumed OTP
-    this.pendingOtps.delete(normalizedIdentifier);
 
     await this.prisma.auditLog.create({
       data: {
@@ -487,15 +515,19 @@ export class AuthService {
     const isEmail = rawIdentifier.includes('@');
     const normalizedIdentifier = isEmail ? rawIdentifier.toLowerCase() : rawIdentifier;
 
-    // Authorize reset session strictly via cryptographically secure resetToken
-    const session = dto.resetToken ? this.resetSessions.get(dto.resetToken) : undefined;
+    // Find valid reset session by hashed reset token
+    const resetTokenHash = this.hashOtp(dto.resetToken.trim());
 
-    if (
-      !session ||
-      Date.now() > session.expiresAt ||
-      session.identifier !== normalizedIdentifier
-    ) {
-      if (dto.resetToken) this.resetSessions.delete(dto.resetToken);
+    const record = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        identifier: normalizedIdentifier,
+        resetTokenHash,
+        completedAt: null,
+        resetTokenExpiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!record) {
       throw new UnauthorizedException({
         errorCode: ErrorCode.RESET_TOKEN_INVALID,
         message: 'পাসওয়ার্ড রিসেট সেশনটি মেয়াদোত্তীর্ণ বা অবৈধ। অনুগ্রহ করে পুনরায় ওটিপি যাচাই করুন।',
@@ -503,7 +535,7 @@ export class AuthService {
     }
 
     const user = await this.prisma.user.findUnique({
-      where: { id: session.userId },
+      where: { id: record.userId },
     });
 
     if (!user || !user.isActive || user.deletedAt) {
@@ -524,15 +556,20 @@ export class AuthService {
 
     const newPasswordHash = await argon2.hash(dto.newPassword);
 
+    // Update password AND increment tokenVersion to invalidate all existing sessions
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash: newPasswordHash,
+        tokenVersion: { increment: 1 },
       },
     });
 
-    // Invalidate reset session
-    this.resetSessions.delete(dto.resetToken);
+    // Mark the reset session as completed
+    await this.prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { completedAt: new Date() },
+    });
 
     await this.prisma.auditLog.create({
       data: {
@@ -594,10 +631,12 @@ export class AuthService {
 
     const newPasswordHash = await argon2.hash(dto.newPassword);
 
+    // Update password AND increment tokenVersion to invalidate all existing sessions
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash: newPasswordHash,
+        tokenVersion: { increment: 1 },
       },
     });
 
@@ -622,10 +661,9 @@ export class AuthService {
   private async generateTokens(
     userId: string,
     role: string,
-    email?: string | null,
-    phone?: string | null,
+    tokenVersion: number,
   ) {
-    const payload = { sub: userId, role, email, phone };
+    const payload = { sub: userId, role, tokenVersion };
 
     const accessSecret = this.configService.getOrThrow<string>('jwt.accessSecret');
     const refreshSecret = this.configService.getOrThrow<string>('jwt.refreshSecret');
@@ -649,5 +687,14 @@ export class AuthService {
       tokenType: 'Bearer',
       expiresIn: accessExpiresIn,
     };
+  }
+
+  /**
+   * Hash an OTP or reset token for secure DB storage.
+   * Uses SHA-256 with a secret prefix to prevent rainbow-table attacks on 6-digit OTPs.
+   */
+  private hashOtp(value: string): string {
+    const secret = this.configService.get<string>('jwt.accessSecret') || 'barivara-otp-pepper';
+    return crypto.createHash('sha256').update(secret + value).digest('hex');
   }
 }

@@ -151,16 +151,21 @@ export class AuthController {
     return this.authService.resetPassword(dto, ipAddress, userAgent);
   }
 
-  @Public()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @Post('reset-password-direct')
   @HttpCode(HttpStatus.OK)
   // Strict rate limit: 5 requests/min
   @Throttle({ default: { ttl: 60000, limit: 5 } })
-  @ApiOperation({ summary: 'বর্তমান পাসওয়ার্ড জানা থাকলে সরাসরি পাসওয়ার্ড পরিবর্তন করুন (Option A)' })
+  @ApiOperation({ summary: 'বর্তমান পাসওয়ার্ড জানা থাকলে সরাসরি পাসওয়ার্ড পরিবর্তন করুন (লগইন করা অবস্থায়)' })
   @ApiResponse({ status: 200, type: StandardSuccessResponseDto })
   @ApiResponse({ status: 400, type: StandardErrorResponseDto })
   @ApiResponse({ status: 401, type: StandardErrorResponseDto })
-  async resetPasswordDirect(@Body() dto: ResetPasswordDirectDto, @Req() req: Request) {
+  async resetPasswordDirect(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: ResetPasswordDirectDto,
+    @Req() req: Request,
+  ) {
     const ipAddress = req.ip || req.socket?.remoteAddress;
     const userAgent = req.headers['user-agent'];
     return this.authService.resetPasswordDirect(dto, ipAddress, userAgent);

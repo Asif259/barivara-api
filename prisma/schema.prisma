@@ -114,16 +114,37 @@ model User {
   passwordHash    String
   role            Role      @default(OWNER)
   isActive        Boolean   @default(true)
+  tokenVersion    Int       @default(0)
   signatureFileId String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   deletedAt       DateTime?
 
-  properties Property[]
-  auditLogs  AuditLog[]
-  createdTenants Tenant[]
+  properties        Property[]
+  auditLogs         AuditLog[]
+  createdTenants    Tenant[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
+}
+
+model PasswordResetToken {
+  id                 String    @id @default(uuid())
+  userId             String
+  identifier         String
+  otpHash            String
+  expiresAt          DateTime
+  attempts           Int       @default(0)
+  resetTokenHash     String?
+  resetTokenExpiresAt DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([identifier])
+  @@index([resetTokenHash])
+  @@map("password_reset_tokens")
 }
 
 model Property {

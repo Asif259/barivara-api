@@ -194,7 +194,8 @@ describe('AuthController', () => {
   // POST /auth/reset-password-direct
   // =========================================================================
   describe('POST /auth/reset-password-direct', () => {
-    it('delegates to authService.resetPasswordDirect', async () => {
+    it('delegates to authService.resetPasswordDirect with current user', async () => {
+      const user = { id: 'user-1', role: 'OWNER' };
       const dto = {
         identifier: 'user@example.com',
         currentPassword: 'OldPassword123',
@@ -204,7 +205,7 @@ describe('AuthController', () => {
       const expected = { message: 'পাসওয়ার্ড পরিবর্তন সফল হয়েছে', data: null };
       mockAuthService.resetPasswordDirect.mockResolvedValue(expected as never);
 
-      const result = await controller.resetPasswordDirect(dto, mockReq as any);
+      const result = await controller.resetPasswordDirect(user as any, dto, mockReq as any);
       expect(result).toBe(expected);
       expect(mockAuthService.resetPasswordDirect).toHaveBeenCalledWith(dto, '127.0.0.1', undefined);
     });

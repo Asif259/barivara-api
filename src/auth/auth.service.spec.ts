@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { ErrorCode } from '../common/constants/error-codes';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 // Mock argon2 so tests don't pay bcrypt/argon2 CPU cost
@@ -22,6 +23,12 @@ const mockPrisma = {
     findFirst: jest.fn<any>(),
     create: jest.fn<any>(),
     update: jest.fn<any>(),
+  },
+  passwordResetToken: {
+    create: jest.fn<any>(),
+    findFirst: jest.fn<any>(),
+    update: jest.fn<any>(),
+    deleteMany: jest.fn<any>(),
   },
   auditLog: {
     create: jest.fn<any>().mockResolvedValue({}),
@@ -43,7 +50,10 @@ const mockConfig = {
     };
     return map[key];
   }),
-  get: jest.fn<any>(() => undefined),
+  get: jest.fn<any>((key: string) => {
+    if (key === 'jwt.accessSecret') return 'access-secret';
+    return undefined;
+  }),
 };
 
 const mockEmailService = {
@@ -57,6 +67,10 @@ describe('AuthService', () => {
     jest.clearAllMocks();
     mockJwt.signAsync.mockResolvedValue('mock.jwt.token');
     mockPrisma.auditLog.create.mockResolvedValue({});
+    mockPrisma.user.update.mockResolvedValue({ id: 'user-1' });
+    mockPrisma.passwordResetToken.create.mockResolvedValue({});
+    mockPrisma.passwordResetToken.update.mockResolvedValue({});
+    mockPrisma.passwordResetToken.deleteMany.mockResolvedValue({});
     mockEmailService.sendPasswordResetOtp.mockResolvedValue(true);
     service = new AuthService(
       mockPrisma as any,
@@ -248,6 +262,24 @@ describe('AuthService', () => {
   });
 
   // =========================================================================
+  // logout
+  // =========================================================================
+  describe('logout', () => {
+    it('increments tokenVersion and writes audit log', async () => {
+      mockPrisma.user.update.mockResolvedValue({ id: 'user-1', tokenVersion: 2 });
+      mockPrisma.auditLog.create.mockResolvedValue({});
+
+      const result = await service.logout('user-1', '127.0.0.1', 'jest-agent');
+      expect(result.data).toBeNull();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { tokenVersion: { increment: 1 } },
+      });
+      expect(mockPrisma.auditLog.create).toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
   // getProfile
   // =========================================================================
   describe('getProfile', () => {
@@ -368,6 +400,21 @@ describe('AuthService', () => {
       const sentOtp = emailCallArgs.otp;
 
       // 2. Verify OTP with correct code
+      const expectedOtpHash = crypto
+        .createHash('sha256')
+        .update('access-secret' + sentOtp)
+        .digest('hex');
+
+      mockPrisma.passwordResetToken.findFirst.mockResolvedValueOnce({
+        id: 'record-1',
+        userId: 'user-1',
+        identifier: 'landlord@example.com',
+        otpHash: expectedOtpHash,
+        attempts: 0,
+        completedAt: null,
+        expiresAt: new Date(Date.now() + 600000),
+      });
+
       const verifyRes = await service.verifyPasswordResetOtp({
         identifier: 'landlord@example.com',
         otp: sentOtp,
@@ -375,6 +422,20 @@ describe('AuthService', () => {
       expect(verifyRes.data.resetToken).toBeDefined();
 
       // 3. Reset password
+      const expectedResetTokenHash = crypto
+        .createHash('sha256')
+        .update('access-secret' + verifyRes.data.resetToken)
+        .digest('hex');
+
+      mockPrisma.passwordResetToken.findFirst.mockResolvedValueOnce({
+        id: 'record-1',
+        userId: 'user-1',
+        identifier: 'landlord@example.com',
+        resetTokenHash: expectedResetTokenHash,
+        completedAt: null,
+        resetTokenExpiresAt: new Date(Date.now() + 600000),
+      });
+
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-1',
         isActive: true,
@@ -392,7 +453,14 @@ describe('AuthService', () => {
       });
 
       expect(resetRes.data).toBeNull();
-      expect(mockPrisma.user.update).toHaveBeenCalled();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: expect.objectContaining({
+            tokenVersion: { increment: 1 },
+          }),
+        }),
+      );
     });
 
     it('verifyOtp rejects invalid OTP and limits attempts', async () => {
@@ -403,6 +471,44 @@ describe('AuthService', () => {
         isActive: true,
       });
       await service.forgotPassword({ identifier: 'landlord@example.com' });
+
+      mockPrisma.passwordResetToken.findFirst
+        .mockResolvedValueOnce({
+          id: 'record-1',
+          userId: 'user-1',
+          identifier: 'landlord@example.com',
+          otpHash: 'valid-otp-hash',
+          attempts: 0,
+          completedAt: null,
+          expiresAt: new Date(Date.now() + 600000),
+        })
+        .mockResolvedValueOnce({
+          id: 'record-1',
+          userId: 'user-1',
+          identifier: 'landlord@example.com',
+          otpHash: 'valid-otp-hash',
+          attempts: 1,
+          completedAt: null,
+          expiresAt: new Date(Date.now() + 600000),
+        })
+        .mockResolvedValueOnce({
+          id: 'record-1',
+          userId: 'user-1',
+          identifier: 'landlord@example.com',
+          otpHash: 'valid-otp-hash',
+          attempts: 2,
+          completedAt: null,
+          expiresAt: new Date(Date.now() + 600000),
+        })
+        .mockResolvedValueOnce({
+          id: 'record-1',
+          userId: 'user-1',
+          identifier: 'landlord@example.com',
+          otpHash: 'valid-otp-hash',
+          attempts: 3,
+          completedAt: null,
+          expiresAt: new Date(Date.now() + 600000),
+        });
 
       // 3 wrong attempts
       await expect(
@@ -424,6 +530,8 @@ describe('AuthService', () => {
     });
 
     it('resetPassword rejects when resetToken is missing, expired or mismatched', async () => {
+      mockPrisma.passwordResetToken.findFirst.mockResolvedValue(null);
+
       await expect(
         service.resetPassword({
           identifier: 'landlord@example.com',

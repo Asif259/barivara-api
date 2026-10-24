@@ -8,12 +8,15 @@ export default () => ({
     accessSecret: process.env.JWT_ACCESS_SECRET,
     refreshSecret: process.env.JWT_REFRESH_SECRET,
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   mobileAppScheme: process.env.MOBILE_APP_SCHEME || 'barivara',
+  redis: {
+    url: process.env.REDIS_URL || undefined,
+  },
   supabase: {
-    // undefined when unset — SupabaseStorageService checks isConfigured() before use
+    // undefined when unset — ReloadStorageService checks isConfigured() before use
     url: process.env.SUPABASE_URL || undefined,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || undefined,
   },
@@ -24,4 +27,6 @@ export default () => ({
       parseInt(process.env.MAX_DOCUMENT_SIZE_MB ?? '10', 10) * 1024 * 1024,
   },
   logLevel: process.env.LOG_LEVEL || 'info',
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  RESEND_FROM: process.env.RESEND_FROM,
 });

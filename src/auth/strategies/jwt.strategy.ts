@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email?: string; phone?: string; role: string }) {
+  async validate(payload: { sub: string; role: string; tokenVersion: number }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: {
@@ -28,6 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         phone: true,
         role: true,
         isActive: true,
+        tokenVersion: true,
       },
     });
 
@@ -35,6 +36,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException({
         errorCode: ErrorCode.AUTH_UNAUTHORIZED,
         message: 'ব্যবহারকারী পাওয়া যায়নি অথবা অ্যাকাউন্ট নিষ্ক্রিয় করা হয়েছে।',
+      });
+    }
+
+    // Token version check — reject tokens issued before a password change
+    if (payload.tokenVersion !== user.tokenVersion) {
+      throw new UnauthorizedException({
+        errorCode: ErrorCode.AUTH_UNAUTHORIZED,
+        message: 'আপনার সেশন মেয়াদোত্তীর্ণ হয়েছে। অনুগ্রহ করে পুনরায় লগইন করুন।',
       });
     }
 

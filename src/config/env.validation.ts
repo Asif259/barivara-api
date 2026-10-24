@@ -72,6 +72,18 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   SUPABASE_SERVICE_ROLE_KEY: string;
 
+  // ── Email (required outside test) ─────────────────────────────────────────
+
+  @ValidateIf((o: EnvironmentVariables) => o.NODE_ENV !== Environment.Test)
+  @IsString()
+  @IsNotEmpty()
+  RESEND_API_KEY: string;
+
+  @ValidateIf((o: EnvironmentVariables) => o.NODE_ENV !== Environment.Test)
+  @IsString()
+  @IsNotEmpty()
+  RESEND_FROM: string;
+
   // ── Optional — configuration.ts provides safe defaults ───────────────────
 
   @IsOptional()
@@ -103,15 +115,6 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   LOG_LEVEL: string;
-
-  @IsOptional()
-  @IsString()
-  RESEND_API_KEY?: string;
-
-  @IsOptional()
-  @IsString()
-  RESEND_FROM?: string;
-
 }
 
 export function validate(config: Record<string, unknown>): EnvironmentVariables {
