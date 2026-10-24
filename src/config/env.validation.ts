@@ -72,22 +72,35 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   SUPABASE_SERVICE_ROLE_KEY: string;
 
-  // ── Email (required outside test) ─────────────────────────────────────────
+  // ── SMTP Email (required outside test) ──────────────────────────────────
 
   @ValidateIf((o: EnvironmentVariables) => o.NODE_ENV !== Environment.Test)
   @IsString()
   @IsNotEmpty()
-  RESEND_API_KEY: string;
+  SMTP_USER: string;
 
-  @ValidateIf((o: EnvironmentVariables) => o.NODE_ENV !== Environment.Test && !o.RESEND_FROM_EMAIL)
+  @ValidateIf((o: EnvironmentVariables) => o.NODE_ENV !== Environment.Test)
   @IsString()
   @IsNotEmpty()
-  @IsOptional()
-  RESEND_FROM?: string;
+  SMTP_PASS: string;
 
   @IsOptional()
   @IsString()
-  RESEND_FROM_EMAIL?: string;
+  SMTP_HOST?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  SMTP_PORT?: number;
+
+  @IsOptional()
+  @IsString()
+  SMTP_SECURE?: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_FROM?: string;
 
   // ── Optional — configuration.ts provides safe defaults ───────────────────
 

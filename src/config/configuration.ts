@@ -27,10 +27,28 @@ export default () => ({
       parseInt(process.env.MAX_DOCUMENT_SIZE_MB ?? '10', 10) * 1024 * 1024,
   },
   logLevel: process.env.LOG_LEVEL || 'info',
-  resend: {
-    apiKey: process.env.RESEND_API_KEY,
-    from: process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM,
+  smtp: {
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT ?? '465', 10) || 465,
+    secure:
+      process.env.SMTP_SECURE !== undefined
+        ? process.env.SMTP_SECURE === 'true'
+        : (parseInt(process.env.SMTP_PORT ?? '465', 10) || 465) === 465,
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    from:
+      process.env.SMTP_FROM ||
+      (process.env.SMTP_USER ? `BariVara <${process.env.SMTP_USER}>` : undefined),
   },
-  RESEND_API_KEY: process.env.RESEND_API_KEY,
-  RESEND_FROM: process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM,
+  SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT ?? '465', 10) || 465,
+  SMTP_SECURE:
+    process.env.SMTP_SECURE !== undefined
+      ? process.env.SMTP_SECURE === 'true'
+      : (parseInt(process.env.SMTP_PORT ?? '465', 10) || 465) === 465,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASS: process.env.SMTP_PASS,
+  SMTP_FROM:
+    process.env.SMTP_FROM ||
+    (process.env.SMTP_USER ? `BariVara <${process.env.SMTP_USER}>` : undefined),
 });

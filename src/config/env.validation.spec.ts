@@ -8,8 +8,8 @@ describe('environment validation', () => {
     JWT_REFRESH_SECRET: 'refresh-secret',
     SUPABASE_URL: 'https://project.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
-    RESEND_API_KEY: 're_mock_key',
-    RESEND_FROM: 'BariVara <onboarding@resend.dev>',
+    SMTP_USER: 'test@gmail.com',
+    SMTP_PASS: 'mock-google-app-password',
   };
 
   it('requires runtime secrets outside test', () => {
