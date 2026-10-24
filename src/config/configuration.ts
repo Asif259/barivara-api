@@ -27,6 +27,10 @@ export default () => ({
       parseInt(process.env.MAX_DOCUMENT_SIZE_MB ?? '10', 10) * 1024 * 1024,
   },
   logLevel: process.env.LOG_LEVEL || 'info',
+  resend: {
+    apiKey: process.env.RESEND_API_KEY,
+    from: process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM,
+  },
   RESEND_API_KEY: process.env.RESEND_API_KEY,
   RESEND_FROM: process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM,
 });
