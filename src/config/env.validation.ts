@@ -79,10 +79,15 @@ export class EnvironmentVariables {
   @IsNotEmpty()
   RESEND_API_KEY: string;
 
-  @ValidateIf((o: EnvironmentVariables) => o.NODE_ENV !== Environment.Test)
+  @ValidateIf((o: EnvironmentVariables) => o.NODE_ENV !== Environment.Test && !o.RESEND_FROM_EMAIL)
   @IsString()
   @IsNotEmpty()
-  RESEND_FROM: string;
+  @IsOptional()
+  RESEND_FROM?: string;
+
+  @IsOptional()
+  @IsString()
+  RESEND_FROM_EMAIL?: string;
 
   // ── Optional — configuration.ts provides safe defaults ───────────────────
 

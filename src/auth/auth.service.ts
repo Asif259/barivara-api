@@ -23,9 +23,10 @@ import { ResetPasswordDirectDto } from './dto/reset-password-direct.dto';
 import { ErrorCode } from '../common/constants/error-codes';
 import { AuditAction } from '@prisma/client';
 
-const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
-const OTP_MAX_ATTEMPTS = 3;
-const RESET_TOKEN_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_MAX_ATTEMPTS = 5; // 5 attempts per OTP
+const RESET_TOKEN_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+const OTP_COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown between resends
 
 @Injectable()
 export class AuthService {
@@ -371,13 +372,38 @@ export class AuthService {
       return genericResponse;
     }
 
+    // Rate-limiting / Cooldown check: prevent email flooding if requested < OTP_COOLDOWN_MS ago
+    const recentRequest = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        identifier: normalizedIdentifier,
+        createdAt: { gt: new Date(Date.now() - OTP_COOLDOWN_MS) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (recentRequest) {
+      // Cooldown active; return generic success without generating new OTP or spamming emails
+      return genericResponse;
+    }
+
+    // Invalidate any previous uncompleted OTPs for this identifier when superseded
+    await this.prisma.passwordResetToken.updateMany({
+      where: {
+        identifier: normalizedIdentifier,
+        completedAt: null,
+      },
+      data: {
+        completedAt: new Date(),
+      },
+    });
+
     // Generate secure 6-digit numeric OTP
     const otp = crypto.randomInt(100000, 1000000).toString();
     const otpHash = this.hashOtp(otp);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
 
     // Store OTP hash in the database (survives restarts, works across instances)
-    await this.prisma.passwordResetToken.create({
+    const createdToken = await this.prisma.passwordResetToken.create({
       data: {
         userId: user.id,
         identifier: normalizedIdentifier,
@@ -392,13 +418,13 @@ export class AuthService {
       to: user.email,
       name: user.name,
       otp,
-      expiresInMinutes: 10,
+      expiresInMinutes: 5,
     });
 
     if (!sent) {
       // Clean up the OTP record on send failure
       await this.prisma.passwordResetToken.deleteMany({
-        where: { identifier: normalizedIdentifier, otpHash, completedAt: null },
+        where: { id: createdToken.id },
       });
       throw new InternalServerErrorException({
         errorCode: ErrorCode.INTERNAL_ERROR,
@@ -454,20 +480,41 @@ export class AuthService {
       });
     }
 
-    // Hash the provided OTP and compare
+    // Hash the provided OTP and compare using timingSafeEqual
     const providedOtpHash = this.hashOtp(dto.otp.trim());
-    if (record.otpHash !== providedOtpHash) {
+    const isMatch =
+      record.otpHash.length === providedOtpHash.length &&
+      crypto.timingSafeEqual(
+        Buffer.from(record.otpHash, 'utf8'),
+        Buffer.from(providedOtpHash, 'utf8'),
+      );
+
+    if (!isMatch) {
+      const updatedAttempts = record.attempts + 1;
+      const isLocked = updatedAttempts >= OTP_MAX_ATTEMPTS;
+
       await this.prisma.passwordResetToken.update({
         where: { id: record.id },
-        data: { attempts: { increment: 1 } },
+        data: {
+          attempts: { increment: 1 },
+          ...(isLocked ? { completedAt: new Date() } : {}),
+        },
       });
+
+      if (isLocked) {
+        throw new BadRequestException({
+          errorCode: ErrorCode.OTP_LIMIT_EXCEEDED,
+          message: 'অতিরিক্ত ভুল চেষ্টার কারণে ওটিপি বাতিল হয়েছে। পুনরায় ওটিপি পাঠান।',
+        });
+      }
+
       throw new BadRequestException({
         errorCode: ErrorCode.INVALID_OTP,
-        message: `ভুল ওটিপি কোড। বাকি সুযোগ: ${OTP_MAX_ATTEMPTS - record.attempts - 1} বার।`,
+        message: `ভুল ওটিপি কোড। বাকি সুযোগ: ${OTP_MAX_ATTEMPTS - updatedAttempts} বার।`,
       });
     }
 
-    // OTP matched successfully! Issue a 10-minute temporary reset authorization token
+    // OTP matched successfully! Issue a 5-minute temporary reset authorization token
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenHash = this.hashOtp(resetToken);
     const resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_EXPIRY_MS);
@@ -556,31 +603,42 @@ export class AuthService {
 
     const newPasswordHash = await argon2.hash(dto.newPassword);
 
-    // Update password AND increment tokenVersion to invalidate all existing sessions
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash: newPasswordHash,
-        tokenVersion: { increment: 1 },
-      },
-    });
+    // Atomically execute: update password, increment tokenVersion (invalidating existing sessions),
+    // mark reset session completed, and invalidate any other active reset tokens for this user
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: newPasswordHash,
+          tokenVersion: { increment: 1 },
+        },
+      });
 
-    // Mark the reset session as completed
-    await this.prisma.passwordResetToken.update({
-      where: { id: record.id },
-      data: { completedAt: new Date() },
-    });
+      await tx.passwordResetToken.update({
+        where: { id: record.id },
+        data: { completedAt: new Date() },
+      });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: AuditAction.UPDATE,
-        entityType: 'User',
-        entityId: user.id,
-        ipAddress,
-        userAgent,
-        metadata: { action: 'PASSWORD_RESET_COMPLETED' },
-      },
+      await tx.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          completedAt: null,
+          id: { not: record.id },
+        },
+        data: { completedAt: new Date() },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: AuditAction.UPDATE,
+          entityType: 'User',
+          entityId: user.id,
+          ipAddress,
+          userAgent,
+          metadata: { action: 'PASSWORD_RESET_COMPLETED' },
+        },
+      });
     });
 
     return {

@@ -18,6 +18,7 @@ jest.mock('argon2', () => ({
 }));
 
 const mockPrisma = {
+  $transaction: jest.fn<any>((cb: (tx: any) => Promise<any>) => cb(mockPrisma)),
   user: {
     findUnique: jest.fn<any>(),
     findFirst: jest.fn<any>(),
@@ -28,6 +29,7 @@ const mockPrisma = {
     create: jest.fn<any>(),
     findFirst: jest.fn<any>(),
     update: jest.fn<any>(),
+    updateMany: jest.fn<any>(),
     deleteMany: jest.fn<any>(),
   },
   auditLog: {
@@ -70,7 +72,9 @@ describe('AuthService', () => {
     mockPrisma.user.update.mockResolvedValue({ id: 'user-1' });
     mockPrisma.passwordResetToken.create.mockResolvedValue({});
     mockPrisma.passwordResetToken.update.mockResolvedValue({});
+    mockPrisma.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
     mockPrisma.passwordResetToken.deleteMany.mockResolvedValue({});
+    mockPrisma.$transaction.mockImplementation((cb: (tx: any) => Promise<any>) => cb(mockPrisma));
     mockEmailService.sendPasswordResetOtp.mockResolvedValue(true);
     service = new AuthService(
       mockPrisma as any,
@@ -463,7 +467,36 @@ describe('AuthService', () => {
       );
     });
 
-    it('verifyOtp rejects invalid OTP and limits attempts', async () => {
+    it('forgotPassword enforces 60s cooldown and invalidates previous OTPs', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({
+        id: 'user-1',
+        name: 'ল্যান্ডলর্ড',
+        email: 'landlord@example.com',
+        isActive: true,
+      });
+
+      // 1. Initial request succeeds, sends email, invalidates previous
+      await service.forgotPassword({ identifier: 'landlord@example.com' });
+      expect(mockPrisma.passwordResetToken.updateMany).toHaveBeenCalledWith({
+        where: { identifier: 'landlord@example.com', completedAt: null },
+        data: { completedAt: expect.any(Date) },
+      });
+      expect(mockEmailService.sendPasswordResetOtp).toHaveBeenCalledTimes(1);
+
+      // 2. Immediate second request within 60s cooldown window
+      mockPrisma.passwordResetToken.findFirst.mockResolvedValueOnce({
+        id: 'recent-token',
+        identifier: 'landlord@example.com',
+        createdAt: new Date(),
+      });
+
+      const secondRes = await service.forgotPassword({ identifier: 'landlord@example.com' });
+      expect(secondRes.data.identifier).toBe('landlord@example.com');
+      // Should not have sent a second email due to active cooldown
+      expect(mockEmailService.sendPasswordResetOtp).toHaveBeenCalledTimes(1);
+    });
+
+    it('verifyOtp rejects invalid OTP and limits to 5 attempts', async () => {
       mockPrisma.user.findFirst.mockResolvedValue({
         id: 'user-1',
         name: 'ল্যান্ডলর্ড',
@@ -477,55 +510,72 @@ describe('AuthService', () => {
           id: 'record-1',
           userId: 'user-1',
           identifier: 'landlord@example.com',
-          otpHash: 'valid-otp-hash',
+          otpHash: '0000000000000000000000000000000000000000000000000000000000000000',
           attempts: 0,
           completedAt: null,
-          expiresAt: new Date(Date.now() + 600000),
+          expiresAt: new Date(Date.now() + 300000),
         })
         .mockResolvedValueOnce({
           id: 'record-1',
           userId: 'user-1',
           identifier: 'landlord@example.com',
-          otpHash: 'valid-otp-hash',
+          otpHash: '0000000000000000000000000000000000000000000000000000000000000000',
           attempts: 1,
           completedAt: null,
-          expiresAt: new Date(Date.now() + 600000),
+          expiresAt: new Date(Date.now() + 300000),
         })
         .mockResolvedValueOnce({
           id: 'record-1',
           userId: 'user-1',
           identifier: 'landlord@example.com',
-          otpHash: 'valid-otp-hash',
+          otpHash: '0000000000000000000000000000000000000000000000000000000000000000',
           attempts: 2,
           completedAt: null,
-          expiresAt: new Date(Date.now() + 600000),
+          expiresAt: new Date(Date.now() + 300000),
         })
         .mockResolvedValueOnce({
           id: 'record-1',
           userId: 'user-1',
           identifier: 'landlord@example.com',
-          otpHash: 'valid-otp-hash',
+          otpHash: '0000000000000000000000000000000000000000000000000000000000000000',
           attempts: 3,
           completedAt: null,
-          expiresAt: new Date(Date.now() + 600000),
+          expiresAt: new Date(Date.now() + 300000),
+        })
+        .mockResolvedValueOnce({
+          id: 'record-1',
+          userId: 'user-1',
+          identifier: 'landlord@example.com',
+          otpHash: '0000000000000000000000000000000000000000000000000000000000000000',
+          attempts: 4,
+          completedAt: null,
+          expiresAt: new Date(Date.now() + 300000),
+        })
+        .mockResolvedValueOnce({
+          id: 'record-1',
+          userId: 'user-1',
+          identifier: 'landlord@example.com',
+          otpHash: '0000000000000000000000000000000000000000000000000000000000000000',
+          attempts: 5,
+          completedAt: null,
+          expiresAt: new Date(Date.now() + 300000),
         });
 
-      // 3 wrong attempts
+      // 4 wrong attempts
+      for (let i = 0; i < 4; i++) {
+        await expect(
+          service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '111111' }),
+        ).rejects.toThrow(BadRequestException);
+      }
+
+      // 5th wrong attempt locks the OTP
       await expect(
-        service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '000000' }),
+        service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '111111' }),
       ).rejects.toThrow(BadRequestException);
 
+      // Subsequent attempt fails with limit exceeded
       await expect(
-        service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '000000' }),
-      ).rejects.toThrow(BadRequestException);
-
-      await expect(
-        service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '000000' }),
-      ).rejects.toThrow(BadRequestException);
-
-      // Next attempt fails with limit exceeded
-      await expect(
-        service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '000000' }),
+        service.verifyPasswordResetOtp({ identifier: 'landlord@example.com', otp: '111111' }),
       ).rejects.toThrow(BadRequestException);
     });
 

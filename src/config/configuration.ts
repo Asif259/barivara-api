@@ -28,5 +28,5 @@ export default () => ({
   },
   logLevel: process.env.LOG_LEVEL || 'info',
   RESEND_API_KEY: process.env.RESEND_API_KEY,
-  RESEND_FROM: process.env.RESEND_FROM,
+  RESEND_FROM: process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM,
 });
