@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentMethod, PaymentStatus } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class PaymentQueryDto extends PaginationQueryDto {
@@ -18,6 +19,20 @@ export class PaymentQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID('4', { message: 'ভাড়াটিয়ার আইডি অবশ্যই একটি সঠিক UUID হতে হবে' })
   tenantId?: string;
+
+  @ApiPropertyOptional({ description: 'ভাড়ার সাল (যেমন: 2026)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'সাল অবশ্যই একটি পূর্ণসংখ্যা হতে হবে' })
+  year?: number;
+
+  @ApiPropertyOptional({ description: 'ভাড়ার মাস (১-১২)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'মাস অবশ্যই একটি পূর্ণসংখ্যা হতে হবে' })
+  @Min(1, { message: 'মাস ১ থেকে ১২ এর মধ্যে হতে হবে' })
+  @Max(12, { message: 'মাস ১ থেকে ১২ এর মধ্যে হতে হবে' })
+  month?: number;
 
   @ApiPropertyOptional({ enum: PaymentMethod, description: 'পেমেন্ট মেথড' })
   @IsOptional()

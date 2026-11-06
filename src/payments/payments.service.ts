@@ -366,6 +366,14 @@ export class PaymentsService {
       },
     };
 
+    if (query.year) {
+      where.monthlyRent.year = query.year;
+    }
+
+    if (query.month) {
+      where.monthlyRent.month = query.month;
+    }
+
     if (query.monthlyRentId) {
       where.monthlyRentId = query.monthlyRentId;
     }
