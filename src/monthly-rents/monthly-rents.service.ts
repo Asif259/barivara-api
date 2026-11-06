@@ -369,6 +369,9 @@ include: {
                 },
               },
             },
+            payments: {
+              orderBy: { paymentDate: 'desc' },
+            },
             _count: { select: { payments: true } },
           },
       }),
