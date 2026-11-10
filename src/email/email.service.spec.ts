@@ -75,7 +75,7 @@ describe('EmailService', () => {
     expect(callArgs.text).toContain('789123');
     expect(callArgs.text).toContain('মিনিট');
     expect(callArgs.html).toContain('789123');
-    expect(callArgs.html).toContain('#12664F');
+    expect(callArgs.html).toContain('#2DC2BD');
   });
 
   it('handles SMTP send failure safely and returns false without throwing', async () => {

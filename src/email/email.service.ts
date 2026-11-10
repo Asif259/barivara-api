@@ -28,8 +28,8 @@ export class EmailService {
       'smtp.gmail.com';
     const smtpPort = Number(
       this.configService.get<number>('SMTP_PORT') ||
-        this.configService.get<number>('smtp.port') ||
-        465,
+      this.configService.get<number>('smtp.port') ||
+      465,
     );
     const smtpSecure =
       this.configService.get<boolean>('smtp.secure') ?? (smtpPort === 465);
@@ -78,12 +78,12 @@ export class EmailService {
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
         <div style="text-align: center; margin-bottom: 24px;">
-          <h1 style="color: #12664F; margin: 0; font-size: 26px; font-weight: bold;">বাড়িভাড়া / BariVara</h1>
+          <h1 style="color: #2DC2BD; margin: 0; font-size: 26px; font-weight: bold;">বাড়িভাড়া / BariVara</h1>
           <p style="color: #64748b; font-size: 14px; margin-top: 4px;">স্মার্ট বাড়ি ও ভাড়া ব্যবস্থাপনা</p>
         </div>
         <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
           <p style="color: #334155; font-size: 15px; margin-bottom: 12px;">হ্যালো ${name || 'ব্যবহারকারী'}, আপনার পাসওয়ার্ড রিসেট ওটিপি কোড হলো:</p>
-          <div style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #12664F; padding: 12px 0; font-family: monospace;">
+          <div style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #2DC2BD; padding: 12px 0; font-family: monospace;">
             ${otp}
           </div>
           <p style="color: #64748b; font-size: 13px; margin-top: 8px;">এই কোডটির মেয়াদ <strong>${expiresInMinutes} মিনিট</strong>।</p>
